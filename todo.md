@@ -71,4 +71,10 @@
 - [ ] Restore the last workspace view and provide a clear resume flow after browser restart without persisting Drive tokens.
 - [x] Evaluate installable app readiness and retain the lighter resume flow because installation would not preserve a Drive token or eliminate the required reconnect.
 - [ ] Deploy and retest the one-tap Resume flow that restores the last workspace view and selected Markdown destination after a browser restart.
+- [ ] Research and propose a secure server-side Google OAuth refresh-token architecture that can silently restore Drive access after browser restart.
+- [ ] Select a free backend provider and implement the smallest secure Google refresh-token service for persistent Drive reconnection.
+- [ ] Build and deploy the approved Cloudflare Worker plus D1 persistent Google Drive connection, including encrypted token storage and secure browser sessions.
+- [x] Define the Cloudflare persistent Drive security model, D1 schema, endpoint contract, and Worker code foundation without introducing secrets into the repository.
+- [x] Correct and test the Worker OAuth start URL so it sends the configured Google client ID, requests offline Drive access, and uses the exact Worker callback.
+- [x] Deploy and validate the free Cloudflare Worker plus D1 foundation, including the public health endpoint, encrypted-token tables, unit tests, and a Worker TypeScript check.
 - [x] Replace the ambiguous OpenRouter key save toggle with a clear personal-device persistence control and explain Drive session reconnection.

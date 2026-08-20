@@ -1,0 +1,23 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "vocab-sync-drive-auth",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-20",
+  "workers_dev": true,
+  "send_metrics": false,
+  "observability": {
+    "enabled": false
+  },
+  "vars": {
+    "FRONTEND_ORIGIN": "https://bettercall-gautam.github.io",
+    "FRONTEND_RETURN_URL": "https://bettercall-gautam.github.io/vocab-sync/",
+    "WORKER_ORIGIN": "https://vocab-sync-drive-auth.gautamjaizz007.workers.dev"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "vocab-sync-oauth",
+      "database_id": "f89200ed-67c7-4e3d-af2e-0cd4fd9556bb"
+    }
+  ]
+}

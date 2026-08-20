@@ -1,0 +1,22 @@
+{
+  "name": "vocab-sync-drive-auth-worker",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "check": "wrangler types && tsc --noEmit",
+    "test": "vitest run",
+    "db:create": "wrangler d1 create vocab-sync-oauth",
+    "db:migrate:local": "wrangler d1 execute vocab-sync-oauth --local --file=./migrations/0001_init.sql",
+    "db:migrate:remote": "wrangler d1 execute vocab-sync-oauth --remote --file=./migrations/0001_init.sql",
+    "print:deploy-input": "node ./scripts/print-deploy-input.mjs",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260820.1",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9",
+    "wrangler": "^4.41.0"
+  }
+}

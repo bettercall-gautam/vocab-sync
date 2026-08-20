@@ -13,6 +13,8 @@ build/
 .env.development.local
 .env.test.local
 .env.production.local
+cloudflare-worker/.dev.vars
+cloudflare-worker/.wrangler/
 
 # IDE and editor files
 .vscode/
