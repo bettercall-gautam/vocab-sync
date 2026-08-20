@@ -23,6 +23,8 @@
 - [ ] Change the confirmed `bettercall-gautam/vocab-sync` repository visibility to public and configure GitHub Pages deployment.
 - [x] Add a GitHub Actions workflow that builds the static Vite app and deploys it to GitHub Pages.
 - [x] Configure Vite's GitHub Pages base path and verify the production static build.
+- [ ] Replace the app-limited sandbox GitHub CLI credential with a repository-write credential, then push the pending Pages deployment commit.
+- [ ] Diagnose and resolve the blank GitHub device-authorization page before continuing the credential replacement.
 - [ ] Verify the authorized GitHub connector with a connector-backed read-only repository listing before using it for deployment.
 - [x] Verify authenticated GitHub CLI repository access for the planned GitHub Pages deployment.
 - [ ] Prepare a static Vite deployment build for free Cloudflare Pages hosting.
