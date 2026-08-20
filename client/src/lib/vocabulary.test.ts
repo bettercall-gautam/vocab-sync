@@ -8,6 +8,7 @@ import {
   isFreeOnlyModel,
   mergeVocabularyEntries,
   normalizeWords,
+  parseGeneratedVocabularyEntries,
   parseVocabularyMarkdown,
   renderVocabularyMarkdown,
   requestWithFreeFallback,
@@ -94,6 +95,16 @@ describe("vocabulary helpers", () => {
     })).toBe(false);
     expect(conciseVocabularyLimits.meaningWords).toBe(8);
     expect(conciseVocabularyLimits.exampleWords).toBe(10);
+  });
+
+  it("parses valid JSON even when a free model wraps it in a Markdown fence", () => {
+    expect(parseGeneratedVocabularyEntries("```json\n{\"entries\":[{\"word\":\"test\",\"meaning\":\"A check.\",\"example\":\"We took a test.\"}]}\n```"))
+      .toEqual([{ word: "test", meaning: "A check.", example: "We took a test." }]);
+  });
+
+  it("rejects malformed or empty free-model output so another free model can be tried", () => {
+    expect(() => parseGeneratedVocabularyEntries("not JSON")).toThrow("not valid JSON");
+    expect(() => parseGeneratedVocabularyEntries('{"entries":[]}')).toThrow("usable vocabulary entries");
   });
 
   it("allows a sync after a Library edit or deletion even with no new drafts", () => {

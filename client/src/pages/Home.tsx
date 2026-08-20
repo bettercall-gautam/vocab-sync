@@ -30,6 +30,7 @@ import {
   mergeVocabularyEntries,
   normalizeWords,
   parseVocabularyMarkdown,
+  parseGeneratedVocabularyEntries,
   requestWithFreeFallback,
   renderVocabularyMarkdown,
   type DriveFileSnapshot,
@@ -271,7 +272,7 @@ export default function Home() {
     setGenerating(true);
     try {
       const requestGeneratedEntries = async (repairInstruction?: string) => {
-        const { value: payload, model } = await requestWithFreeFallback(async selectedModel => {
+        const { value: entries, model } = await requestWithFreeFallback(async selectedModel => {
         const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
           headers: {
@@ -300,16 +301,15 @@ export default function Home() {
             temperature: 0.25,
           }),
         });
-        if (!response.ok) throw new Error("Free model unavailable");
-        return response.json();
+          if (!response.ok) throw new Error("Free model unavailable");
+          const payload = await response.json();
+          const parsedEntries = parseGeneratedVocabularyEntries(payload.choices?.[0]?.message?.content);
+          if (parsedEntries.length !== wordsReady.length) throw new Error("Model did not return every requested word.");
+          return parsedEntries;
         });
-        const content = payload.choices?.[0]?.message?.content;
-        const parsed = JSON.parse(content ?? "{}") as { entries?: Array<{ word?: string; meaning?: string; example?: string }> };
         return {
           model,
-          entries: (parsed.entries ?? [])
-            .filter(entry => entry.word && entry.meaning && entry.example)
-            .map(entry => createEntry(entry.word!.trim(), entry.meaning!.trim(), entry.example!.trim())),
+          entries: entries.map(entry => createEntry(entry.word, entry.meaning, entry.example)),
         };
       };
 
@@ -450,6 +450,27 @@ export default function Home() {
               </Button>
             </div>
           </header>
+
+          <nav aria-label="Workspace navigation" className="mt-4 grid grid-cols-2 gap-2 rounded-2xl border border-[#ddd6c8] bg-[#fffdf8]/90 p-2 lg:hidden">
+            {[
+              { id: "capture", label: "Capture", icon: PenLine },
+              { id: "library", label: "Library", icon: Library },
+            ].map(item => {
+              const Icon = item.icon;
+              const active = activeView === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveView(item.id as "capture" | "library")}
+                  className={`flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition-colors ${active ? "bg-[#d9ece8] text-[#184d53]" : "text-[#66748a] hover:bg-[#f0ece3] hover:text-[#273d58]"}`}
+                >
+                  <Icon size={17} />
+                  {item.label}
+                  {item.id === "library" && library.length > 0 && <span className="rounded-full bg-white/75 px-1.5 py-0.5 font-mono text-[10px]">{library.length}</span>}
+                </button>
+              );
+            })}
+          </nav>
 
           {activeView === "capture" ? (
             <div className="mx-auto grid max-w-6xl gap-6 pt-7 xl:grid-cols-[minmax(0,1fr)_350px]">

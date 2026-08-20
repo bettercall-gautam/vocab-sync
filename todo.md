@@ -63,3 +63,6 @@
 - [x] Repair the failed concise-generation GitHub Pages deployment after the GitHub web editor truncated a source line.
 - [x] Retest the live delete and sync path: remove one Library entry, confirm Sync to Drive becomes active, then complete the Drive sync.
 - [x] Create and publish repository documentation covering configuration, normal use, Drive sync, safety, and troubleshooting.
+- [x] Add a clear mobile navigation control for switching between Capture and Library.
+- [x] Make free-model generation retries resilient to malformed or empty responses and show a clearer retry message.
+- [ ] Publish the tested mobile navigation and free-model resilience update, then retest the live mobile view and generation flow.
