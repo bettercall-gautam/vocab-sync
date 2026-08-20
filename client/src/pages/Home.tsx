@@ -175,13 +175,17 @@ export default function Home() {
       toast.error("Connect Google Drive before choosing a file.");
       return;
     }
-    if (!pickerApiKey || !shelfFolderId || !(window as any).google?.picker || !window.gapi) {
+    if (!pickerApiKey || !shelfFolderId || !window.gapi) {
       setSetupExpanded(true);
       toast.error("The Drive file picker needs the browser API key and The Shelf folder ID.");
       return;
     }
 
     window.gapi.load("picker", () => {
+      if (!(window as any).google?.picker) {
+        toast.error("Google Drive's file picker could not finish loading. Try again in a moment.");
+        return;
+      }
       const view = new (window as any).google.picker.DocsView((window as any).google.picker.ViewId.DOCS)
         .setParent(shelfFolderId)
         .setMimeTypes("text/markdown")
