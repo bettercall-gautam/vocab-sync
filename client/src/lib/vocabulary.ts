@@ -138,6 +138,38 @@ export function isConciseVocabularyEntry(entry: GeneratedVocabularyText): boolea
   );
 }
 
+export function parseGeneratedVocabularyEntries(content: unknown): GeneratedVocabularyText[] {
+  if (typeof content !== "string" || !content.trim()) throw new Error("Model response was empty.");
+
+  const json = content
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "");
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    throw new Error("Model response was not valid JSON.");
+  }
+
+  if (!parsed || typeof parsed !== "object" || !Array.isArray((parsed as { entries?: unknown }).entries)) {
+    throw new Error("Model response did not contain vocabulary entries.");
+  }
+
+  const entries = (parsed as { entries: unknown[] }).entries
+    .filter((entry): entry is Record<string, unknown> => Boolean(entry && typeof entry === "object"))
+    .map(entry => ({
+      word: typeof entry.word === "string" ? entry.word.trim() : "",
+      meaning: typeof entry.meaning === "string" ? entry.meaning.trim() : "",
+      example: typeof entry.example === "string" ? entry.example.trim() : "",
+    }))
+    .filter(entry => Boolean(entry.word && entry.meaning && entry.example));
+
+  if (!entries.length) throw new Error("Model response did not contain usable vocabulary entries.");
+  return entries;
+}
+
 export function hasSyncableVocabularyChanges(drafts: VocabularyEntry[], libraryDirty: boolean): boolean {
   return libraryDirty || drafts.some(entry => Boolean(entry.word.trim() && entry.meaning.trim() && entry.example.trim()));
 }
@@ -156,7 +188,7 @@ export async function requestWithFreeFallback<T>(
       // Free providers can be temporarily full or unavailable. Try the next free model only.
     }
   }
-  throw new Error(`No free model is available right now. Tried ${attempted.length} free options.`);
+  throw new Error(`Free models were busy or returned unusable output. Try again in a moment. Tried ${attempted.length} free options.`);
 }
 
 export function mergeVocabularyEntries(
