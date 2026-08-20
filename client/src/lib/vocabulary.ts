@@ -6,6 +6,17 @@ export type VocabularyEntry = {
   createdAt: number;
 };
 
+export type GeneratedVocabularyText = {
+  word: string;
+  meaning: string;
+  example: string;
+};
+
+export const conciseVocabularyLimits = {
+  meaningWords: 8,
+  exampleWords: 10,
+} as const;
+
 export type DriveFileSnapshot = {
   id: string;
   name: string;
@@ -111,6 +122,20 @@ export const freeModelFallbacks = [
 
 export function isFreeOnlyModel(model: string): boolean {
   return model === "openrouter/free" || model.endsWith(":free");
+}
+
+function countWords(value: string): number {
+  return value.trim().split(/\s+/).filter(Boolean).length;
+}
+
+export function isConciseVocabularyEntry(entry: GeneratedVocabularyText): boolean {
+  return Boolean(
+    entry.word.trim()
+    && entry.meaning.trim()
+    && entry.example.trim()
+    && countWords(entry.meaning) <= conciseVocabularyLimits.meaningWords
+    && countWords(entry.example) <= conciseVocabularyLimits.exampleWords,
+  );
 }
 
 export async function requestWithFreeFallback<T>(
