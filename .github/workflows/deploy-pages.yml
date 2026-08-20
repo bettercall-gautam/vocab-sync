@@ -20,21 +20,24 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Build static site
         run: pnpm build:static
         env:
           GITHUB_ACTIONS: "true"
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+          VITE_GOOGLE_PICKER_API_KEY: ${{ vars.VITE_GOOGLE_PICKER_API_KEY }}
+          VITE_THE_SHELF_FOLDER_ID: ${{ vars.VITE_THE_SHELF_FOLDER_ID }}
           VITE_DRIVE_SESSION_WORKER_URL: "https://vocab-sync-drive-auth.gautamjaizz007.workers.dev"
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

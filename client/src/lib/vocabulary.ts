@@ -6,14 +6,6 @@ export type VocabularyEntry = {
   createdAt: number;
 };
 
-export type DriveFileSnapshot = {
-  id: string;
-  name: string;
-  version: string;
-  modifiedTime: string;
-  content: string;
-};
-
 export type GeneratedVocabularyText = {
   word: string;
   meaning: string;
@@ -24,6 +16,14 @@ export const conciseVocabularyLimits = {
   meaningWords: 8,
   exampleWords: 10,
 } as const;
+
+export type DriveFileSnapshot = {
+  id: string;
+  name: string;
+  version: string;
+  modifiedTime: string;
+  content: string;
+};
 
 const dividerPattern = /^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/;
 
