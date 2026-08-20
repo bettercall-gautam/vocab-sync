@@ -67,4 +67,5 @@
 - [x] Make free-model generation retries resilient to malformed or empty responses and show a clearer retry message.
 - [ ] Publish the tested mobile navigation and free-model resilience update, then retest the live mobile view and generation flow.
 - [ ] Investigate and, if safely supported, reduce repeated Google Drive account prompts after a browser restart without persisting Drive access tokens.
+- [ ] Remember the selected Markdown destination locally and restore it after Drive reconnects in a fresh browser session without storing Drive tokens.
 - [x] Replace the ambiguous OpenRouter key save toggle with a clear personal-device persistence control and explain Drive session reconnection.

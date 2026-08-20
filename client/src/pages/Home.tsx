@@ -36,6 +36,10 @@ import {
   type VocabularyEntry,
 } from "@/lib/vocabulary";
 import { getDriveAppId, hasPickerBootstrapPrerequisites } from "@/lib/google-picker";
+import {
+  parseRememberedMarkdownDestination,
+  serializeRememberedMarkdownDestination,
+} from "@/lib/remembered-destination";
 
 type DriveConnection = {
   token: string;
@@ -58,6 +62,7 @@ declare global {
 
 const localDraftKey = "vocab-sync-local-drafts";
 const localRouterKey = "vocab-sync-openrouter-key";
+const localSelectedFileKey = "vocab-sync-selected-markdown-destination";
 const driveScope = "https://www.googleapis.com/auth/drive.file";
 
 function createEntry(word = "", meaning = "", example = ""): VocabularyEntry {
@@ -143,6 +148,37 @@ export default function Home() {
     if (!nextValue) localStorage.removeItem(localRouterKey);
   }
 
+  async function loadMarkdownDestination(token: string, id: string, restored = false) {
+    const snapshot = await fetchDriveSnapshot(token, id);
+    const nextSelectedFile = {
+      id: snapshot.id,
+      name: snapshot.name,
+      version: snapshot.version,
+      modifiedTime: snapshot.modifiedTime,
+      fingerprint: createFingerprint(snapshot.content),
+    };
+    setSelectedFile(nextSelectedFile);
+    setLibrary(parseVocabularyMarkdown(snapshot.content));
+    setLibraryDirty(false);
+    localStorage.setItem(
+      localSelectedFileKey,
+      serializeRememberedMarkdownDestination({ id: nextSelectedFile.id, name: nextSelectedFile.name }),
+    );
+    toast.success(restored ? `${snapshot.name} restored after reconnecting Drive.` : `${snapshot.name} is ready to edit.`);
+  }
+
+  async function restoreRememberedMarkdownDestination(token: string) {
+    const remembered = parseRememberedMarkdownDestination(localStorage.getItem(localSelectedFileKey));
+    if (!remembered) return;
+
+    try {
+      await loadMarkdownDestination(token, remembered.id, true);
+    } catch {
+      localStorage.removeItem(localSelectedFileKey);
+      toast.message("Your saved Markdown destination could not be restored. Choose it again from The Shelf.");
+    }
+  }
+
   function connectGoogleDrive() {
     if (!isOnline) {
       toast.error("You are offline. Reconnect before accessing Google Drive.");
@@ -171,6 +207,7 @@ export default function Home() {
           expiresAt: Date.now() + (response.expires_in ?? 3600) * 1000,
         });
         toast.success("Google Drive connected for this browser session.");
+        void restoreRememberedMarkdownDestination(response.access_token);
       },
     });
   client.requestAccessToken({ prompt: "" });
@@ -210,17 +247,7 @@ export default function Home() {
         .setCallback(async (data: { action: string; docs?: Array<{ id: string; name: string }> }) => {
           if (data.action !== (window as any).google.picker.Action.PICKED || !data.docs?.[0]) return;
           try {
-            const snapshot = await fetchDriveSnapshot(connection.token, data.docs[0].id);
-            setSelectedFile({
-              id: snapshot.id,
-              name: snapshot.name,
-              version: snapshot.version,
-              modifiedTime: snapshot.modifiedTime,
-              fingerprint: createFingerprint(snapshot.content),
-            });
-            setLibrary(parseVocabularyMarkdown(snapshot.content));
-            setLibraryDirty(false);
-            toast.success(`${snapshot.name} is ready to edit.`);
+            await loadMarkdownDestination(connection.token, data.docs[0].id);
           } catch (error) {
             toast.error(error instanceof Error ? error.message : "Could not open that file.");
           }

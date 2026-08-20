@@ -23,6 +23,10 @@ Connect Drive, choose a Markdown file from The Shelf, and let the app read the c
 
 Vocab Sync does not store Google Drive access tokens. Google’s browser token model issues short-lived access tokens and requires a new token after a restart or expiry. The app therefore keeps **Connect Drive** as a deliberate user action. For a returning user who is already signed in to Google and has granted the same Drive scope, the app requests a new token with an empty prompt. Google can reuse the existing grant without forcing account selection or consent again. If Google cannot continue the session, its own account or consent dialog appears instead. [4]
 
+## Remembered Markdown destination
+
+After the owner selects a Markdown note from The Shelf, Vocab Sync stores only that file’s Drive ID and display name in browser `localStorage`. It does not store the Drive access token or any file content. After the owner presses **Connect Drive** in a later browser session, the app uses the newly issued short-lived token to reload a fresh snapshot of that remembered file. If Drive access has changed or the file no longer exists, the app removes the saved destination and asks the owner to choose a file again.
+
 ## References
 
 1. [Google Picker for web apps](https://developers.google.com/workspace/drive/picker/guides/web-picker)

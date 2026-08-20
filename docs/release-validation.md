@@ -32,3 +32,7 @@ GitHub Pages run 18 completed successfully for commit `406cf9c`. The release inc
 The local setup panel now exposes a standard **Remember key on this device** checkbox and explains that it is appropriate only on an owner-controlled locked device. It also states that Drive access reconnects after a browser restart for safety.
 
 Commit `f41ca42` published the clearer key-persistence control. GitHub Pages workflow run 19 completed successfully.
+
+Commit `022e387` changed the returning-user Drive token request to use Google’s empty prompt behavior. GitHub Pages workflow run 20 completed successfully, while Drive tokens remain session-only and unstored.
+
+The selected Markdown destination restore implementation stores only a file ID and display name. On an explicit future Drive reconnect, it loads a new snapshot using the newly issued short-lived token rather than persisting a token or file content.
