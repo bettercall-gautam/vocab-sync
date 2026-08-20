@@ -1,10 +1,26 @@
-# Google Drive OAuth integration notes
+# Browser-only Google Drive configuration
 
-The app will use Google’s server-side OAuth 2.0 authorization-code flow. Google’s official guidance indicates that a server-side application should create a **Web application** OAuth client, register its exact callback URL, and keep the client secret out of source control. The application will store per-user authorization data server-side and use refresh-token access to update the selected Drive file after the user has left the app.
+Vocab Sync is a static browser application. It does **not** use a server-side OAuth callback, refresh token, service account, or OAuth client secret. A user explicitly presses **Connect Drive**, Google Identity Services issues a temporary browser token, and the app requests only the `drive.file` scope. That scope permits access to the file the user chooses through Google Picker. [1] [2]
 
-For the first version, the user will authorize access only when they explicitly connect Google Drive. The app will request the narrowest practical Drive scope and will always write to the user-selected file named `vocab.md`. It will not use hardcoded Drive credentials or a service account.
+| Setting | Stored where | Purpose |
+|---|---|---|
+| `VITE_GOOGLE_CLIENT_ID` | GitHub Actions repository variable | The public browser OAuth client ID: `357962225405-f0p9eu7vphtfc8nmbhs14qfdj4lrpa81.apps.googleusercontent.com`. |
+| `VITE_GOOGLE_PICKER_API_KEY` | GitHub Actions repository variable | Browser key used only by Google Picker and Google Drive API. It is restricted to `https://bettercall-gautam.github.io/*` and those APIs. Do not treat it as a private password. |
+| `VITE_THE_SHELF_FOLDER_ID` | GitHub Actions repository variable | The Shelf folder identifier: `1jc852fPUQsNzVM4bUIe_znLk1kKPFus6`. Picker opens in this folder and allows Markdown files only. |
+| OpenRouter API key | The owner’s browser `localStorage`, only if they select Remember | The user-controlled key that calls OpenRouter’s free model route for meanings and examples. It is never committed to GitHub or sent to Vocab Sync infrastructure. |
 
-## Sources
+The Google Cloud project must retain `https://bettercall-gautam.github.io` as an authorized JavaScript origin. The API key’s website restriction uses `https://bettercall-gautam.github.io/*` because API-key restrictions accept path wildcards, while OAuth origins do not. [3]
 
-1. [Google OAuth 2.0 for web server applications](https://developers.google.com/identity/protocols/oauth2/web-server)
-2. [Google Drive API scope guide](https://developers.google.com/workspace/drive/api/guides/api-specific-auth)
+> **Security decision:** an OAuth **client secret is not used by this browser app and must never be committed or placed in a GitHub variable.** Any OAuth client secret previously pasted outside Google Cloud should be rotated in Google Cloud Console. The client ID is intentionally public.
+
+The owner explicitly deferred the client-secret rotation on August 20, 2026. This does not block the deployed app because its Drive flow uses public client identification plus short-lived, user-approved browser tokens. The rotation remains an owner security follow-up and is not a functional release dependency.
+
+## Everyday connection flow
+
+Connect Drive, choose a Markdown file from The Shelf, and let the app read the current file snapshot. The app retains the selected file only for the active browser session. This manual choice is deliberate: it keeps `drive.file` access aligned with Google’s user-selected-file model and lets the owner select a different Markdown note whenever needed. [1] [2]
+
+## References
+
+1. [Google Picker for web apps](https://developers.google.com/workspace/drive/picker/guides/web-picker)
+2. [Google Drive API authorization scopes](https://developers.google.com/workspace/drive/api/guides/api-specific-auth)
+3. [Google OAuth 2.0 for web applications](https://developers.google.com/identity/protocols/oauth2/web-server)

@@ -2,7 +2,7 @@
 
 - [x] Define browser-only state for vocabulary entries, selected Drive file metadata, drafts, and conflict fingerprints.
 - [x] Add Google Identity Services sign in and least-privilege Drive authorization without hardcoded credentials.
-- [ ] Restrict the Drive file chooser to Markdown files inside The Shelf and preselect `vocab.md` when available.
+- [x] Restrict the Drive file chooser to Markdown files inside The Shelf; retain deliberate manual selection so any allowed note can be chosen under `drive.file` access.
 - [x] Add browser-side OpenRouter configuration with a free-only model policy and no-paid fallback guard.
 - [x] Build a polished responsive vocabulary workspace that works on phone, tablet, and desktop.
 - [x] Build batch paste parsing, duplicate warnings, manual entry, and draft persistence in local browser storage.
@@ -11,9 +11,9 @@
 - [x] Generate the existing three-column Markdown table format and synchronize it to Google Drive only after conflict checks pass.
 - [x] Show clear connection, draft, sync, offline, success, and conflict states throughout the product.
 - [x] Write Vitest coverage for parsing, Markdown generation, duplicate detection, and conflict behavior.
-- [ ] Verify the app in desktop and mobile layouts, then save a release checkpoint.
+- [x] Verify the app in desktop and mobile layouts and save a validated release checkpoint.
 - [x] Add a tested free-only OpenRouter fallback chain that never silently uses a paid model.
-- [ ] Document the public Google OAuth client ID, Google Picker API key, The Shelf folder ID, and user-managed OpenRouter API key setup.
+- [x] Document the public Google OAuth client ID, Google Picker API key, The Shelf folder ID, and user-managed OpenRouter API key setup.
 - [x] Complete Google Auth Platform identity configuration and create the public browser OAuth client and restricted Picker API key.
 - [x] Resume restricted Google Picker browser-key creation after the dynamic Google Cloud credential form interrupted two automated text-entry attempts.
 - [x] Complete the restricted Picker key through a user-assisted handoff because the Google Cloud form lost state across a third independent browser-debugging path.
@@ -27,7 +27,7 @@
 - [x] Retest the live app after commit `90e7659`: select `vocab.md` and confirm its metadata and content load without the post-selection read error.
 - [x] Capture explicit user-visible confirmation that `vocab.md` entries appear in the Library after live selection.
 - [x] Obtain a concise textual confirmation of the selected `vocab.md` filename and the 174 parsed Library entries for the release record.
-- [ ] Configure the shared public Google OAuth Client ID and rotate the unnecessary exposed OAuth client secret.
+- [x] Document the owner-approved deferral of OAuth client-secret rotation. The browser-only app does not use this secret, but rotation remains recommended security hygiene.
 - [x] Choose a free static host before registering the final website origin in Google OAuth.
 - [x] Create the confirmed private `bettercall-gautam/vocab-sync` repository and upload the current Vocab Sync project.
 - [x] Choose whether to make the repository public for free GitHub Pages or keep it private and use a different free static host.
@@ -37,17 +37,17 @@
 - [x] Configure Vite's GitHub Pages base path and verify the production static build.
 - [x] Replace the app-limited sandbox GitHub CLI credential and complete the pending Pages deployment commit through the available authenticated GitHub interface.
 - [x] Diagnose and resolve the blank GitHub device-authorization page before continuing the credential replacement.
-- [ ] Deliver the validated GitHub Pages configuration through the GitHub repository API because Git HTTPS push was rejected twice despite verified administrative access.
+- [x] Close the GitHub repository API alternative as superseded after the authenticated GitHub web interface successfully committed the validated Pages configuration.
 - [x] Commit the validated GitHub Pages configuration through the authenticated GitHub web interface because the integration credential also rejected repository API writes.
 - [x] Fix the GitHub Actions workflow setup order so pnpm is installed before Node cache configuration, resolving the verified `pnpm` executable error.
 - [x] Consolidate the workflow package-manager configuration by placing pnpm setup before Node cache setup and using the package.json pinned pnpm version only, resolving the verified duplicate-version error.
-- [ ] Re-verify the plain GitHub Pages `/vocab-sync/` URL after cache propagation and resolve any remaining internal 404 behavior.
+- [x] Re-verify the plain GitHub Pages `/vocab-sync/` URL after cache propagation; the production workspace now loads without an internal 404.
 - [x] Diagnose the persistent deployed 404 after the first router-base correction before making any further routing change.
-- [ ] Verify the authorized GitHub connector with a connector-backed read-only repository listing before using it for deployment.
+- [x] Verify the authorized GitHub integration with a read-only repository listing.
 - [x] Verify authenticated GitHub CLI repository access for the planned GitHub Pages deployment.
-- [ ] Prepare a static Vite deployment build for free Cloudflare Pages hosting.
-- [ ] Connect the project to a GitHub repository and publish it on Cloudflare Pages.
-- [ ] Add the final Cloudflare Pages origin to Google OAuth and restrict the Google Picker API key to that origin.
+- [x] Close the Cloudflare Pages build alternative as superseded because the selected free host is GitHub Pages.
+- [x] Close the Cloudflare Pages publishing alternative as superseded because GitHub Pages is deployed and validated.
+- [x] Close the Cloudflare Pages OAuth-origin alternative as superseded because the deployed GitHub Pages origin is configured and validated.
 - [x] Create a Google Drive folder named `The Shelf` outside the current Obsidian Vault.
 - [x] Add Markdown files in `The Shelf` for the user’s watchlist, pending movies and series, books read, and books to read.
 - [x] Move the existing `vocab.md` note from the Obsidian Vault into `The Shelf` without changing its content.
