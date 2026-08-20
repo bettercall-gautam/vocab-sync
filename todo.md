@@ -62,3 +62,4 @@
 - [x] Enable Drive sync after Library edits or deletions by tracking changes that are not new drafts.
 - [x] Repair the failed concise-generation GitHub Pages deployment after the GitHub web editor truncated a source line.
 - [x] Retest the live delete and sync path: remove one Library entry, confirm Sync to Drive becomes active, then complete the Drive sync.
+- [x] Create and publish repository documentation covering configuration, normal use, Drive sync, safety, and troubleshooting.

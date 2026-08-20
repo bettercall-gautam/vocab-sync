@@ -22,3 +22,5 @@ The initial browser edit in `fe725ec` truncated the message immediately before `
 GitHub Pages run 14 completed successfully for commit `f623f74`. The live release includes both the concise-output enforcement and the corrected Library edit and deletion sync path.
 
 The owner completed a live end-to-end verification after deployment. A Library deletion activated Sync to Drive, the sync completed, and the same deletion appeared in Obsidian. This verifies the Drive write path for a Library-only change without any new draft entries.
+
+Repository documentation publication began with commit `4798846`, which added and rendered the root README on GitHub. The README links to the companion user guide under `docs/user-guide.md`.
