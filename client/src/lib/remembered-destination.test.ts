@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   parseRememberedMarkdownDestination,
+  parseWorkspaceView,
   serializeRememberedMarkdownDestination,
 } from "./remembered-destination";
 
@@ -21,5 +22,12 @@ describe("remembered Markdown destination", () => {
   it("serializes only the destination metadata needed for a later Drive reload", () => {
     const saved = serializeRememberedMarkdownDestination({ id: "file-123", name: "vocab.md" });
     expect(JSON.parse(saved)).toEqual({ id: "file-123", name: "vocab.md" });
+  });
+
+  it("restores the last known workspace view safely", () => {
+    expect(parseWorkspaceView("library")).toBe("library");
+    expect(parseWorkspaceView("capture")).toBe("capture");
+    expect(parseWorkspaceView("unexpected")).toBe("capture");
+    expect(parseWorkspaceView(null)).toBe("capture");
   });
 });

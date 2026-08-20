@@ -3,6 +3,8 @@ export type RememberedMarkdownDestination = {
   name?: string;
 };
 
+export type WorkspaceView = "capture" | "library";
+
 export function parseRememberedMarkdownDestination(value: string | null): RememberedMarkdownDestination | null {
   if (!value) return null;
 
@@ -20,4 +22,8 @@ export function parseRememberedMarkdownDestination(value: string | null): Rememb
 
 export function serializeRememberedMarkdownDestination(destination: RememberedMarkdownDestination): string {
   return JSON.stringify({ id: destination.id, name: destination.name });
+}
+
+export function parseWorkspaceView(value: string | null): WorkspaceView {
+  return value === "library" ? "library" : "capture";
 }

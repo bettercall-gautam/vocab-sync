@@ -38,7 +38,10 @@ import {
 import { getDriveAppId, hasPickerBootstrapPrerequisites } from "@/lib/google-picker";
 import {
   parseRememberedMarkdownDestination,
+  parseWorkspaceView,
   serializeRememberedMarkdownDestination,
+  type RememberedMarkdownDestination,
+  type WorkspaceView,
 } from "@/lib/remembered-destination";
 
 type DriveConnection = {
@@ -63,6 +66,7 @@ declare global {
 const localDraftKey = "vocab-sync-local-drafts";
 const localRouterKey = "vocab-sync-openrouter-key";
 const localSelectedFileKey = "vocab-sync-selected-markdown-destination";
+const localWorkspaceViewKey = "vocab-sync-workspace-view";
 const driveScope = "https://www.googleapis.com/auth/drive.file";
 
 function createEntry(word = "", meaning = "", example = ""): VocabularyEntry {
@@ -90,7 +94,7 @@ async function fetchDriveSnapshot(token: string, id: string): Promise<DriveFileS
 }
 
 export default function Home() {
-  const [activeView, setActiveView] = useState<"capture" | "library">("capture");
+  const [activeView, setActiveView] = useState<WorkspaceView>(() => parseWorkspaceView(localStorage.getItem(localWorkspaceViewKey)));
   const [rawWords, setRawWords] = useState("");
   const [drafts, setDrafts] = useState<VocabularyEntry[]>([]);
   const [library, setLibrary] = useState<VocabularyEntry[]>([]);
@@ -98,6 +102,9 @@ export default function Home() {
   const [rememberKey, setRememberKey] = useState(false);
   const [connection, setConnection] = useState<DriveConnection | null>(null);
   const [selectedFile, setSelectedFile] = useState<SelectedFile | null>(null);
+  const [rememberedDestination, setRememberedDestination] = useState<RememberedMarkdownDestination | null>(() => (
+    parseRememberedMarkdownDestination(localStorage.getItem(localSelectedFileKey))
+  ));
   const [libraryDirty, setLibraryDirty] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -117,6 +124,10 @@ export default function Home() {
   useEffect(() => {
     localStorage.setItem(localDraftKey, JSON.stringify(drafts));
   }, [drafts]);
+
+  useEffect(() => {
+    localStorage.setItem(localWorkspaceViewKey, activeView);
+  }, [activeView]);
 
   useEffect(() => {
     const markOnline = () => setIsOnline(true);
@@ -164,6 +175,7 @@ export default function Home() {
       localSelectedFileKey,
       serializeRememberedMarkdownDestination({ id: nextSelectedFile.id, name: nextSelectedFile.name }),
     );
+    setRememberedDestination({ id: nextSelectedFile.id, name: nextSelectedFile.name });
     toast.success(restored ? `${snapshot.name} restored after reconnecting Drive.` : `${snapshot.name} is ready to edit.`);
   }
 
@@ -175,6 +187,7 @@ export default function Home() {
       await loadMarkdownDestination(token, remembered.id, true);
     } catch {
       localStorage.removeItem(localSelectedFileKey);
+      setRememberedDestination(null);
       toast.message("Your saved Markdown destination could not be restored. Choose it again from The Shelf.");
     }
   }
@@ -472,7 +485,7 @@ export default function Home() {
                 {!isOnline ? "Offline" : connectionReady ? "Drive connected" : "Drive not connected"}
               </span>
               <Button variant="outline" onClick={connectGoogleDrive} className="h-10 rounded-xl border-[#c8d0d8] bg-white/70 px-3 text-xs font-semibold text-[#27415f] hover:bg-white sm:px-4">
-                <Cloud size={15} className="mr-2" /> {connectionReady ? "Reconnect" : "Connect Drive"}
+                <Cloud size={15} className="mr-2" /> {connectionReady ? "Reconnect" : rememberedDestination?.name ? `Resume ${rememberedDestination.name}` : "Connect Drive"}
               </Button>
             </div>
           </header>
@@ -566,8 +579,8 @@ export default function Home() {
               <aside className="space-y-5 xl:pt-1">
                 <section className="rounded-3xl bg-[#183e66] p-5 text-[#f8f4ea] shadow-[0_18px_38px_rgba(24,62,102,0.18)]">
                   <div className="flex items-center justify-between"><span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[#b7d9d6]">Destination</span><FileText size={17} className="text-[#b7d9d6]" /></div>
-                  <p className="mt-4 truncate font-display text-xl font-semibold">{selectedFile?.name ?? "No file selected"}</p>
-                  <p className="mt-2 text-xs leading-5 text-[#c5d5e1]">{selectedFile ? `Last loaded ${new Date(selectedFile.modifiedTime).toLocaleString()}` : "Choose vocab.md from The Shelf after connecting Drive."}</p>
+                  <p className="mt-4 truncate font-display text-xl font-semibold">{selectedFile?.name ?? rememberedDestination?.name ?? "No file selected"}</p>
+                  <p className="mt-2 text-xs leading-5 text-[#c5d5e1]">{selectedFile ? `Last loaded ${new Date(selectedFile.modifiedTime).toLocaleString()}` : rememberedDestination ? "Tap Resume to reload this file from Drive." : "Choose vocab.md from The Shelf after connecting Drive."}</p>
                   <Button variant="secondary" onClick={pickMarkdownFile} className="mt-5 h-10 w-full rounded-xl bg-[#f0eee6] text-xs font-bold text-[#183e66] hover:bg-white"><FolderOpen size={15} className="mr-2" /> Choose Markdown file</Button>
                 </section>
 
@@ -598,7 +611,7 @@ export default function Home() {
                     {library.map(entry => <div key={entry.id} className="grid gap-2 border-t border-[#ece7dc] px-4 py-4 sm:grid-cols-[0.9fr_1.2fr_1.5fr_30px] sm:items-center sm:gap-4"><Input value={entry.word} onChange={event => updateLibraryEntry(entry.id, "word", event.target.value)} aria-label="Word or phrase" className="h-9 bg-[#fbfaf6] text-sm font-semibold text-[#263e5b] shadow-none" /><Input value={entry.meaning} onChange={event => updateLibraryEntry(entry.id, "meaning", event.target.value)} aria-label="Simple meaning" className="h-9 bg-[#fbfaf6] text-sm shadow-none" /><Input value={entry.example} onChange={event => updateLibraryEntry(entry.id, "example", event.target.value)} aria-label="Example" className="h-9 bg-[#fbfaf6] text-sm shadow-none" /><button onClick={() => deleteLibraryEntry(entry.id)} className="justify-self-end rounded-lg p-2 text-[#8e9bad] hover:bg-[#fbebea] hover:text-[#b34b43]" aria-label={`Delete ${entry.word}`}><X size={16} /></button></div>)}
                   </div>
                 ) : (
-                  <div className="mt-7 rounded-2xl border border-dashed border-[#d6cfc1] bg-[#faf8f2] px-5 py-14 text-center"><Library className="mx-auto text-[#9cacbd]" size={26} /><p className="mt-3 text-sm font-semibold text-[#445c75]">No vocabulary loaded yet.</p><p className="mt-1 text-xs text-[#7b899a]">Connect Drive and choose `vocab.md` from The Shelf.</p></div>
+                  <div className="mt-7 rounded-2xl border border-dashed border-[#d6cfc1] bg-[#faf8f2] px-5 py-14 text-center"><Library className="mx-auto text-[#9cacbd]" size={26} /><p className="mt-3 text-sm font-semibold text-[#445c75]">No vocabulary loaded yet.</p><p className="mt-1 text-xs text-[#7b899a]">{rememberedDestination?.name ? `Tap Resume ${rememberedDestination.name} to reload it from Drive.` : "Connect Drive and choose `vocab.md` from The Shelf."}</p></div>
                 )}
               </div>
             </section>

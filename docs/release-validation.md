@@ -36,3 +36,7 @@ Commit `f41ca42` published the clearer key-persistence control. GitHub Pages wor
 Commit `022e387` changed the returning-user Drive token request to use Google’s empty prompt behavior. GitHub Pages workflow run 20 completed successfully, while Drive tokens remain session-only and unstored.
 
 The selected Markdown destination restore implementation stores only a file ID and display name. On an explicit future Drive reconnect, it loads a new snapshot using the newly issued short-lived token rather than persisting a token or file content.
+
+GitHub Pages workflow run 22 completed successfully for commit `7e0d0f7`, which restores the remembered Markdown destination after a fresh Drive reconnect.
+
+In the local restart simulation, persisted `library` view state and the remembered `vocab.md` destination reappeared after reload. The header exposed a single **Resume vocab.md** action and the Library view remained active. No Drive token, file content, or live Drive data was placed in local storage.

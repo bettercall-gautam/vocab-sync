@@ -68,4 +68,7 @@
 - [ ] Publish the tested mobile navigation and free-model resilience update, then retest the live mobile view and generation flow.
 - [ ] Investigate and, if safely supported, reduce repeated Google Drive account prompts after a browser restart without persisting Drive access tokens.
 - [ ] Remember the selected Markdown destination locally and restore it after Drive reconnects in a fresh browser session without storing Drive tokens.
+- [ ] Restore the last workspace view and provide a clear resume flow after browser restart without persisting Drive tokens.
+- [x] Evaluate installable app readiness and retain the lighter resume flow because installation would not preserve a Drive token or eliminate the required reconnect.
+- [ ] Deploy and retest the one-tap Resume flow that restores the last workspace view and selected Markdown destination after a browser restart.
 - [x] Replace the ambiguous OpenRouter key save toggle with a clear personal-device persistence control and explain Drive session reconnection.
