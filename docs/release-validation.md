@@ -30,3 +30,5 @@ At a 375 pixel mobile viewport, Vocab Sync now shows a two-button navigation con
 GitHub Pages run 18 completed successfully for commit `406cf9c`. The release includes the mobile Capture and Library switcher plus free-only retries for malformed, fenced, empty, or incomplete model responses.
 
 The local setup panel now exposes a standard **Remember key on this device** checkbox and explains that it is appropriate only on an owner-controlled locked device. It also states that Drive access reconnects after a browser restart for safety.
+
+Commit `f41ca42` published the clearer key-persistence control. GitHub Pages workflow run 19 completed successfully.

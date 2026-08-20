@@ -66,4 +66,5 @@
 - [x] Add a clear mobile navigation control for switching between Capture and Library.
 - [x] Make free-model generation retries resilient to malformed or empty responses and show a clearer retry message.
 - [ ] Publish the tested mobile navigation and free-model resilience update, then retest the live mobile view and generation flow.
+- [ ] Investigate and, if safely supported, reduce repeated Google Drive account prompts after a browser restart without persisting Drive access tokens.
 - [x] Replace the ambiguous OpenRouter key save toggle with a clear personal-device persistence control and explain Drive session reconnection.

@@ -19,8 +19,13 @@ The owner explicitly deferred the client-secret rotation on August 20, 2026. Thi
 
 Connect Drive, choose a Markdown file from The Shelf, and let the app read the current file snapshot. The app retains the selected file only for the active browser session. This manual choice is deliberate: it keeps `drive.file` access aligned with Google’s user-selected-file model and lets the owner select a different Markdown note whenever needed. [1] [2]
 
+## Reconnecting after a browser restart
+
+Vocab Sync does not store Google Drive access tokens. Google’s browser token model issues short-lived access tokens and requires a new token after a restart or expiry. The app therefore keeps **Connect Drive** as a deliberate user action. For a returning user who is already signed in to Google and has granted the same Drive scope, the app requests a new token with an empty prompt. Google can reuse the existing grant without forcing account selection or consent again. If Google cannot continue the session, its own account or consent dialog appears instead. [4]
+
 ## References
 
 1. [Google Picker for web apps](https://developers.google.com/workspace/drive/picker/guides/web-picker)
 2. [Google Drive API authorization scopes](https://developers.google.com/workspace/drive/api/guides/api-specific-auth)
 3. [Google OAuth 2.0 for web applications](https://developers.google.com/identity/protocols/oauth2/web-server)
+4. [Google Identity Services token model](https://developers.google.com/identity/oauth2/web/guides/use-token-model)
