@@ -65,17 +65,17 @@
 - [x] Create and publish repository documentation covering configuration, normal use, Drive sync, safety, and troubleshooting.
 - [x] Add a clear mobile navigation control for switching between Capture and Library.
 - [x] Make free-model generation retries resilient to malformed or empty responses and show a clearer retry message.
-- [ ] Publish the tested mobile navigation and free-model resilience update, then retest the live mobile view and generation flow.
-- [ ] Investigate and, if safely supported, reduce repeated Google Drive account prompts after a browser restart without persisting Drive access tokens.
-- [ ] Remember the selected Markdown destination locally and restore it after Drive reconnects in a fresh browser session without storing Drive tokens.
-- [ ] Restore the last workspace view and provide a clear resume flow after browser restart without persisting Drive tokens.
+- [x] Publish the tested mobile navigation and free-model resilience update, then retest the live mobile view and generation flow.
+- [x] Investigate and, if safely supported, reduce repeated Google Drive account prompts after a browser restart without persisting Drive access tokens.
+- [x] Remember the selected Markdown destination locally and restore it after Drive reconnects in a fresh browser session without storing Drive tokens.
+- [x] Restore the last workspace view and provide a clear resume flow after browser restart without persisting Drive tokens.
 - [x] Evaluate installable app readiness and retain the lighter resume flow because installation would not preserve a Drive token or eliminate the required reconnect.
 - [ ] Deploy and retest the one-tap Resume flow that restores the last workspace view and selected Markdown destination after a browser restart.
-- [ ] Research and propose a secure server-side Google OAuth refresh-token architecture that can silently restore Drive access after browser restart.
-- [ ] Select a free backend provider and implement the smallest secure Google refresh-token service for persistent Drive reconnection.
-- [ ] Build and deploy the approved Cloudflare Worker plus D1 persistent Google Drive connection, including encrypted token storage and secure browser sessions.
+- [x] Research and propose a secure server-side Google OAuth refresh-token architecture that can silently restore Drive access after browser restart.
+- [x] Select a free backend provider and implement the smallest secure Google refresh-token service for persistent Drive reconnection.
+- [x] Build and deploy the approved Cloudflare Worker plus D1 persistent Google Drive connection, including encrypted token storage and secure browser sessions.
 - [x] Define the Cloudflare persistent Drive security model, D1 schema, endpoint contract, and Worker code foundation without introducing secrets into the repository.
 - [x] Correct and test the Worker OAuth start URL so it sends the configured Google client ID, requests offline Drive access, and uses the exact Worker callback.
 - [x] Deploy and validate the free Cloudflare Worker plus D1 foundation, including the public health endpoint, encrypted-token tables, unit tests, and a Worker TypeScript check.
-- [ ] Integrate the deployed Worker session flow into the GitHub Pages frontend, including automatic Drive restoration and safe session recovery controls.
+- [x] Integrate the deployed Worker session flow into the GitHub Pages frontend, including automatic Drive restoration and safe session recovery controls.
 - [x] Replace the ambiguous OpenRouter key save toggle with a clear personal-device persistence control and explain Drive session reconnection.

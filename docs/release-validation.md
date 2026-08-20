@@ -40,3 +40,19 @@ The selected Markdown destination restore implementation stores only a file ID a
 GitHub Pages workflow run 22 completed successfully for commit `7e0d0f7`, which restores the remembered Markdown destination after a fresh Drive reconnect.
 
 In the local restart simulation, persisted `library` view state and the remembered `vocab.md` destination reappeared after reload. The header exposed a single **Resume vocab.md** action and the Library view remained active. No Drive token, file content, or live Drive data was placed in local storage.
+
+The persistent connection release was published through GitHub Pages workflow run `32378299052` after correcting a confirmed duplicate pnpm-version setup error in the workflow. The live app loaded at the production URL, and its production bundle contained only the public Cloudflare Worker origin. A direct live-bundle check found no `GOOGLE_CLIENT_SECRET` value or refresh-token literal. The deployed Worker separately verified exact-origin CORS, rejected a request without a device session, and returned the expected Google authorization-code redirect with offline Drive scope.
+
+The first live persistent Drive connection reached Google’s account verification checkpoint for the approved owner account. Google requested a device confirmation before showing the Drive permission screen. No Google Drive permission, refresh token, browser session handle, file content, or verification code was captured by the validation record.
+
+After the missing D1 tables were created and verified, the restarted authorization flow reached Google’s expected warning for an OAuth application in testing. The screen identifies the user as the developer and offers **Continue** or **Back to safety**. The pending next step is the final owner-controlled Drive consent screen.
+
+The testing warning then progressed to Google’s owner-email consent checkpoint. The screen discloses only the owner email address and asks whether the Worker may read it to enforce the single-owner connection rule. The user approved that narrowly scoped identity check; the Drive permission remains a separate pending consent.
+
+The final Google consent summary disclosed the `drive.file` restriction exactly as intended: **“See, edit, create, and delete only the specific Google Drive files you use with this app.”** The flow remains paused before the owner chooses the final **Continue** button.
+
+After the owner approved the final consent action, the browser remained on the same consent page rather than returning to the Worker callback. No successful connection record has yet been observed, so no access token or persistent session is assumed to exist.
+
+The final Google consent control was confirmed enabled and a controlled submission was issued after the standard browser click did not navigate. Authorization success remains pending until the Worker callback and encrypted connection metadata are independently verified.
+
+The final consent completed successfully. The live app returned with a **Drive connected** state plus explicit **Forget this device** and **Disconnect Drive everywhere** controls. The database contains one connection metadata row with `drive.file`, `userinfo.email`, and `openid` scopes and one non-revoked browser-session row. The browser local-storage key list contains only the opaque device-session handle, local drafts, and workspace-view state. It does not contain a named Google access-token key.
