@@ -172,7 +172,7 @@ export default function Home() {
         toast.success("Google Drive connected for this browser session.");
       },
     });
-    client.requestAccessToken({ prompt: "consent" });
+    client.requestAccessToken({ prompt: "" });
   }
 
   function pickMarkdownFile() {
