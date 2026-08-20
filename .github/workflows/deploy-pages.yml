@@ -58,6 +58,9 @@ jobs:
         env:
         
           GITHUB_ACTIONS: "true"
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+          VITE_GOOGLE_PICKER_API_KEY: ${{ vars.VITE_GOOGLE_PICKER_API_KEY }}
+          VITE_THE_SHELF_FOLDER_ID: ${{ vars.VITE_THE_SHELF_FOLDER_ID }}
           
       - name: Upload Pages artifact
       
