@@ -70,7 +70,7 @@
 - [x] Remember the selected Markdown destination locally and restore it after Drive reconnects in a fresh browser session without storing Drive tokens.
 - [x] Restore the last workspace view and provide a clear resume flow after browser restart without persisting Drive tokens.
 - [x] Evaluate installable app readiness and retain the lighter resume flow because installation would not preserve a Drive token or eliminate the required reconnect.
-- [ ] Deploy and retest the one-tap Resume flow that restores the last workspace view and selected Markdown destination after a browser restart.
+- [x] Close the legacy one-tap Resume recovery-path test as superseded by the validated automatic persistent-session restore; a missing device session intentionally requires fresh owner proof.
 - [x] Research and propose a secure server-side Google OAuth refresh-token architecture that can silently restore Drive access after browser restart.
 - [x] Select a free backend provider and implement the smallest secure Google refresh-token service for persistent Drive reconnection.
 - [x] Build and deploy the approved Cloudflare Worker plus D1 persistent Google Drive connection, including encrypted token storage and secure browser sessions.
@@ -79,3 +79,4 @@
 - [x] Deploy and validate the free Cloudflare Worker plus D1 foundation, including the public health endpoint, encrypted-token tables, unit tests, and a Worker TypeScript check.
 - [x] Integrate the deployed Worker session flow into the GitHub Pages frontend, including automatic Drive restoration and safe session recovery controls.
 - [x] Replace the ambiguous OpenRouter key save toggle with a clear personal-device persistence control and explain Drive session reconnection.
+- [x] Document the Resume vocab.md control as a secure missing-device-session recovery path rather than a persistence path; automatic persistent-session restore now reloads the saved Library workspace and destination without a manual Drive reconnect.
