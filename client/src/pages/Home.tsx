@@ -125,6 +125,7 @@ export default function Home() {
   const driveClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   const pickerApiKey = import.meta.env.VITE_GOOGLE_PICKER_API_KEY;
   const shelfFolderId = import.meta.env.VITE_THE_SHELF_FOLDER_ID;
+  const driveAppId = driveClientId?.match(/^(\d+)-/)?.[1];
 
   function updateRouterKey(value: string) {
     setOpenRouterKey(value);
@@ -175,7 +176,7 @@ export default function Home() {
       toast.error("Connect Google Drive before choosing a file.");
       return;
     }
-    if (!pickerApiKey || !shelfFolderId || !window.gapi) {
+    if (!pickerApiKey || !shelfFolderId || !window.gapi || !driveAppId) {
       setSetupExpanded(true);
       toast.error("The Drive file picker needs the browser API key and The Shelf folder ID.");
       return;
@@ -193,6 +194,7 @@ export default function Home() {
         .setSelectFolderEnabled(false);
       const picker = new (window as any).google.picker.PickerBuilder()
         .setDeveloperKey(pickerApiKey)
+        .setAppId(driveAppId)
         .setOAuthToken(connection.token)
         .addView(view)
         .setTitle("Choose a Markdown file from The Shelf")
