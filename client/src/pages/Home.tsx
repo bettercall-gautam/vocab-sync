@@ -25,6 +25,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   createFingerprint,
   hasDriveConflict,
+  isConciseVocabularyEntry,
   mergeVocabularyEntries,
   normalizeWords,
   parseVocabularyMarkdown,
@@ -238,10 +239,7 @@ export default function Home() {
 
   function deleteLibraryEntry(id: string) {
     setLibrary(current => current.filter(entry => entry.id !== id));
-    toast.message("Entry removed locally. Sync to Drive to make the change permanent.");
-  }
-
-  async function generateEntries() {
+    toast.message("Entry removed locally. Sync to Drive to make th  async function generateEntries() {
     if (!isOnline) {
       toast.error("You are offline. You can still add a manual draft, but AI generation needs a connection.");
       return;
@@ -258,49 +256,65 @@ export default function Home() {
 
     setGenerating(true);
     try {
-      const { value: payload, model } = await requestWithFreeFallback(async selectedModel => {
-        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${openRouterKey.trim()}`,
-            "Content-Type": "application/json",
-            "HTTP-Referer": window.location.origin,
-            "X-Title": "Vocab Sync",
-          },
-          body: JSON.stringify({
-            model: selectedModel,
-            messages: [
-              {
-                role: "system",
-                content: "Return only valid JSON. You create concise vocabulary notes. Keep meanings direct and simple. Keep examples short and natural.",
-              },
-              {
-                role: "user",
-                content: JSON.stringify({
-                  words: wordsReady,
-                  requiredFormat: { entries: [{ word: "", meaning: "", example: "" }] },
-                }),
-              },
-            ],
-            response_format: { type: "json_object" },
-            temperature: 0.25,
-          }),
+      const requestGeneratedEntries = async (repairInstruction?: string) => {
+        const { value: payload, model } = await requestWithFreeFallback(async selectedModel => {
+          const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: "Bearer " + openRouterKey.trim(),
+              "Content-Type": "application/json",
+              "HTTP-Referer": window.location.origin,
+              "X-Title": "Vocab Sync",
+            },
+            body: JSON.stringify({
+              model: selectedModel,
+              messages: [
+                {
+                  role: "system",
+                  content: "Return only valid JSON. Create extremely concise vocabulary notes. Hard rules for every entry: meaning has at most 8 words and gives one direct simple definition; example has at most 10 words and is one natural sentence. Do not add explanations, clauses, alternatives, or extra detail.",
+                },
+                {
+                  role: "user",
+                  content: JSON.stringify({
+                    words: wordsReady,
+                    requiredFormat: { entries: [{ word: "", meaning: "", example: "" }] },
+                    repairInstruction,
+                  }),
+                },
+              ],
+              response_format: { type: "json_object" },
+              temperature: 0.25,
+            }),
+          });
+          if (!response.ok) throw new Error("Free model unavailable");
+          return response.json();
         });
-        if (!response.ok) throw new Error("Free model unavailable");
-        return response.json();
-      });
-      const content = payload.choices?.[0]?.message?.content;
-      const parsed = JSON.parse(content ?? "{}") as { entries?: Array<{ word?: string; meaning?: string; example?: string }> };
-      const generated = (parsed.entries ?? [])
-        .filter(entry => entry.word && entry.meaning && entry.example)
-        .map(entry => createEntry(entry.word!.trim(), entry.meaning!.trim(), entry.example!.trim()));
+        const content = payload.choices?.[0]?.message?.content;
+        const parsed = JSON.parse(content ?? "{}") as { entries?: Array<{ word?: string; meaning?: string; example?: string }> };
+        return {
+          model,
+          entries: (parsed.entries ?? [])
+            .filter(entry => entry.word && entry.meaning && entry.example)
+            .map(entry => createEntry(entry.word!.trim(), entry.meaning!.trim(), entry.example!.trim())),
+        };
+      };
+
+      let { entries: generated, model } = await requestGeneratedEntries();
+      if (generated.some(entry => !isConciseVocabularyEntry(entry))) {
+        ({ entries: generated, model } = await requestGeneratedEntries(
+          "Your previous output was too long. Regenerate every entry within the exact word limits.",
+        ));
+      }
       if (!generated.length) throw new Error("The free model returned an unusable result. Try again or add entries manually.");
+      if (generated.some(entry => !isConciseVocabularyEntry(entry))) {
+        throw new Error("The free model kept the answer too long. Try again in a moment or edit a manual draft.");
+      }
       const { entries, duplicates } = mergeVocabularyEntries([...library, ...drafts], generated);
       const fresh = entries.slice(library.length + drafts.length);
       setDrafts(current => [...current, ...fresh]);
       setRawWords("");
-      if (duplicates.length) toast.message(`${duplicates.length} duplicate word${duplicates.length === 1 ? " was" : "s were"} skipped.`);
-      toast.success(`${fresh.length} draft ${fresh.length === 1 ? "entry" : "entries"} generated with ${model}.`);
+      if (duplicates.length) toast.message(duplicates.length + " duplicate word" + (duplicates.length === 1 ? " was" : "s were") + " skipped.");
+      toast.success(fresh.length + " draft " + (fresh.length === 1 ? "entry" : "entries") + " generated with " + model + ".");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Generation could not be completed.");
     } finally {
