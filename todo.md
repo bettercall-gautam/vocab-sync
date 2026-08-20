@@ -58,3 +58,4 @@
 - [x] Reformat `watchlist.md` to match the vocab table style with S.No. and Movie / Series Name columns.
 - [x] Rebuild the entire watched section so every movie and series title is inside one valid numbered Markdown table with no scattered rows.
 - [x] Add the user-provided watched movie and series titles to the `Watched` section of `watchlist.md` in The Shelf.
+- [x] Enforce concise AI-generated meanings and examples after the owner reported an overly long `hypothesis` definition and example.

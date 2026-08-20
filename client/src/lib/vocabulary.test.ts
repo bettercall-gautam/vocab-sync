@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  conciseVocabularyLimits,
   createFingerprint,
   hasDriveConflict,
+  isConciseVocabularyEntry,
   isFreeOnlyModel,
   mergeVocabularyEntries,
   normalizeWords,
@@ -75,5 +77,21 @@ describe("vocabulary helpers", () => {
     expect(result).toEqual({ value: "generated", model: "nvidia/nemotron-3.5-lightning:free" });
     expect(called).toEqual(["openrouter/free", "nvidia/nemotron-3.5-lightning:free"]);
     expect(isFreeOnlyModel("paid/provider-model")).toBe(false);
+  });
+
+  it("accepts compact vocabulary notes and rejects overlong model output", () => {
+    expect(isConciseVocabularyEntry({
+      word: "hypothesis",
+      meaning: "A testable idea based on evidence.",
+      example: "The researcher tested her hypothesis.",
+    })).toBe(true);
+
+    expect(isConciseVocabularyEntry({
+      word: "hypothesis",
+      meaning: "A proposed explanation based on limited evidence that can be tested through observation.",
+      example: "The researcher formed a hypothesis that adding fertilizer would increase crop yield.",
+    })).toBe(false);
+    expect(conciseVocabularyLimits.meaningWords).toBe(8);
+    expect(conciseVocabularyLimits.exampleWords).toBe(10);
   });
 });

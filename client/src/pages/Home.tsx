@@ -25,6 +25,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   createFingerprint,
   hasDriveConflict,
+  isConciseVocabularyEntry,
   mergeVocabularyEntries,
   normalizeWords,
   parseVocabularyMarkdown,
@@ -263,7 +264,8 @@ export default function Home() {
 
     setGenerating(true);
     try {
-      const { value: payload, model } = await requestWithFreeFallback(async selectedModel => {
+      const requestGeneratedEntries = async (repairInstruction?: string) => {
+        const { value: payload, model } = await requestWithFreeFallback(async selectedModel => {
         const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
           headers: {
@@ -277,13 +279,14 @@ export default function Home() {
             messages: [
               {
                 role: "system",
-                content: "Return only valid JSON. You create concise vocabulary notes. Keep meanings direct and simple. Keep examples short and natural.",
+                content: "Return only valid JSON. Create extremely concise vocabulary notes. Hard rules for every entry: meaning has at most 8 words and gives one direct simple definition; example has at most 10 words and is one natural sentence. Do not add explanations, clauses, alternatives, or extra detail.",
               },
               {
                 role: "user",
                 content: JSON.stringify({
                   words: wordsReady,
                   requiredFormat: { entries: [{ word: "", meaning: "", example: "" }] },
+                  repairInstruction,
                 }),
               },
             ],
@@ -293,13 +296,27 @@ export default function Home() {
         });
         if (!response.ok) throw new Error("Free model unavailable");
         return response.json();
-      });
-      const content = payload.choices?.[0]?.message?.content;
-      const parsed = JSON.parse(content ?? "{}") as { entries?: Array<{ word?: string; meaning?: string; example?: string }> };
-      const generated = (parsed.entries ?? [])
-        .filter(entry => entry.word && entry.meaning && entry.example)
-        .map(entry => createEntry(entry.word!.trim(), entry.meaning!.trim(), entry.example!.trim()));
+        });
+        const content = payload.choices?.[0]?.message?.content;
+        const parsed = JSON.parse(content ?? "{}") as { entries?: Array<{ word?: string; meaning?: string; example?: string }> };
+        return {
+          model,
+          entries: (parsed.entries ?? [])
+            .filter(entry => entry.word && entry.meaning && entry.example)
+            .map(entry => createEntry(entry.word!.trim(), entry.meaning!.trim(), entry.example!.trim())),
+        };
+      };
+
+      let { entries: generated, model } = await requestGeneratedEntries();
+      if (generated.some(entry => !isConciseVocabularyEntry(entry))) {
+        ({ entries: generated, model } = await requestGeneratedEntries(
+          "Your previous output was too long. Regenerate every entry within the exact word limits.",
+        ));
+      }
       if (!generated.length) throw new Error("The free model returned an unusable result. Try again or add entries manually.");
+      if (generated.some(entry => !isConciseVocabularyEntry(entry))) {
+        throw new Error("The free model kept the answer too long. Try again in a moment or edit a manual draft.");
+      }
       const { entries, duplicates } = mergeVocabularyEntries([...library, ...drafts], generated);
       const fresh = entries.slice(library.length + drafts.length);
       setDrafts(current => [...current, ...fresh]);
