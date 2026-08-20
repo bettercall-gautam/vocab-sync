@@ -1,20 +1,35 @@
 # Project TODO
 
-- [ ] Define a vocabulary-entry data model with word, simple meaning, example sentence, source state, and timestamps.
-- [ ] Add secure Google OAuth configuration for Drive access without hardcoded credentials.
-- [ ] Store encrypted OAuth tokens and the selected `vocab.md` Drive file reference per authenticated user.
-- [ ] Add an LLM-backed generation procedure that returns concise meanings and short example sentences as structured data.
-- [ ] Build an elegant, responsive dashboard layout for the vocabulary workflow.
-- [ ] Build a paste area that accepts multiple words and clearly shows parsing status.
-- [ ] Build a review screen that lets users edit generated meanings and examples before saving.
-- [ ] Persist approved entries and display a searchable history list.
-- [ ] Allow users to edit or delete an existing entry and reflect the change in the history.
-- [ ] Generate Obsidian-compatible Markdown and push the full `vocab.md` file to Google Drive after each approved change.
-- [ ] Show clear connection, sync, success, and error states throughout the product.
-- [ ] Write Vitest coverage for entry formatting, generation input validation, and Drive sync behavior.
+- [ ] Define browser-only state for vocabulary entries, selected Drive file metadata, drafts, and conflict fingerprints.
+- [ ] Add Google Identity Services sign in and least-privilege Drive authorization without hardcoded credentials.
+- [ ] Restrict the Drive file chooser to Markdown files inside The Shelf and preselect `vocab.md` when available.
+- [x] Add browser-side OpenRouter configuration with a free-only model policy and no-paid fallback guard.
+- [x] Build a polished responsive vocabulary workspace that works on phone, tablet, and desktop.
+- [x] Build batch paste parsing, duplicate warnings, manual entry, and draft persistence in local browser storage.
+- [x] Build editable AI-generated review cards with concise meanings and example sentences.
+- [ ] Parse the selected Markdown file to display the existing vocabulary history and allow edits or deletions.
+- [ ] Generate the existing three-column Markdown table format and synchronize it to Google Drive only after conflict checks pass.
+- [x] Show clear connection, draft, sync, offline, success, and conflict states throughout the product.
+- [x] Write Vitest coverage for parsing, Markdown generation, duplicate detection, and conflict behavior.
 - [ ] Verify the app in desktop and mobile layouts, then save a release checkpoint.
+- [x] Add a tested free-only OpenRouter fallback chain that never silently uses a paid model.
+- [ ] Document the public Google OAuth client ID, Google Picker API key, The Shelf folder ID, and user-managed OpenRouter API key setup.
+- [ ] Complete Google Auth Platform identity configuration and create the public browser OAuth client and restricted Picker API key.
+- [ ] Configure the shared public Google OAuth Client ID and rotate the unnecessary exposed OAuth client secret.
+- [ ] Choose a free static host before registering the final website origin in Google OAuth.
+- [ ] Create the confirmed private `bettercall-gautam/vocab-sync` repository and upload the current Vocab Sync project.
+- [ ] Verify the authorized GitHub connector with a connector-backed read-only repository listing before using it for deployment.
+- [x] Verify authenticated GitHub CLI repository access for the planned GitHub Pages deployment.
+- [ ] Prepare a static Vite deployment build for free Cloudflare Pages hosting.
+- [ ] Connect the project to a GitHub repository and publish it on Cloudflare Pages.
+- [ ] Add the final Cloudflare Pages origin to Google OAuth and restrict the Google Picker API key to that origin.
 - [x] Create a Google Drive folder named `The Shelf` outside the current Obsidian Vault.
 - [x] Add Markdown files in `The Shelf` for the user’s watchlist, pending movies and series, books read, and books to read.
 - [x] Move the existing `vocab.md` note from the Obsidian Vault into `The Shelf` without changing its content.
 - [x] Move `The Shelf` from the Drive top level into the actual Obsidian Vault root and verify its contents remain intact.
-- [ ] Add the user-provided watched movie and series titles to the `Watched` section of `watchlist.md` in The Shelf.
+- [x] Convert the watched titles in `watchlist.md` from checkbox items into a clean Markdown table.
+- [x] Fix the watched table rows so Obsidian renders them as a real Markdown table instead of literal pipe text.
+- [x] Retry and verify the watchlist Markdown table update after the user reported an error.
+- [x] Reformat `watchlist.md` to match the vocab table style with S.No. and Movie / Series Name columns.
+- [x] Rebuild the entire watched section so every movie and series title is inside one valid numbered Markdown table with no scattered rows.
+- [x] Add the user-provided watched movie and series titles to the `Watched` section of `watchlist.md` in The Shelf.
