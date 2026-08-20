@@ -1,30 +1,48 @@
 # Project TODO
 
-- [ ] Define browser-only state for vocabulary entries, selected Drive file metadata, drafts, and conflict fingerprints.
-- [ ] Add Google Identity Services sign in and least-privilege Drive authorization without hardcoded credentials.
+- [x] Define browser-only state for vocabulary entries, selected Drive file metadata, drafts, and conflict fingerprints.
+- [x] Add Google Identity Services sign in and least-privilege Drive authorization without hardcoded credentials.
 - [ ] Restrict the Drive file chooser to Markdown files inside The Shelf and preselect `vocab.md` when available.
 - [x] Add browser-side OpenRouter configuration with a free-only model policy and no-paid fallback guard.
 - [x] Build a polished responsive vocabulary workspace that works on phone, tablet, and desktop.
 - [x] Build batch paste parsing, duplicate warnings, manual entry, and draft persistence in local browser storage.
 - [x] Build editable AI-generated review cards with concise meanings and example sentences.
-- [ ] Parse the selected Markdown file to display the existing vocabulary history and allow edits or deletions.
-- [ ] Generate the existing three-column Markdown table format and synchronize it to Google Drive only after conflict checks pass.
+- [x] Parse the selected Markdown file to display the existing vocabulary history and allow edits or deletions.
+- [x] Generate the existing three-column Markdown table format and synchronize it to Google Drive only after conflict checks pass.
 - [x] Show clear connection, draft, sync, offline, success, and conflict states throughout the product.
 - [x] Write Vitest coverage for parsing, Markdown generation, duplicate detection, and conflict behavior.
 - [ ] Verify the app in desktop and mobile layouts, then save a release checkpoint.
 - [x] Add a tested free-only OpenRouter fallback chain that never silently uses a paid model.
 - [ ] Document the public Google OAuth client ID, Google Picker API key, The Shelf folder ID, and user-managed OpenRouter API key setup.
-- [ ] Complete Google Auth Platform identity configuration and create the public browser OAuth client and restricted Picker API key.
+- [x] Complete Google Auth Platform identity configuration and create the public browser OAuth client and restricted Picker API key.
+- [x] Resume restricted Google Picker browser-key creation after the dynamic Google Cloud credential form interrupted two automated text-entry attempts.
+- [x] Complete the restricted Picker key through a user-assisted handoff because the Google Cloud form lost state across a third independent browser-debugging path.
+- [x] Diagnose and correct the live Google OAuth `no registered origin` error after the first deployed Drive connection attempt.
+- [x] Complete the final live Drive and Picker check in a user-visible browser because the sandbox browser closes the parent app window after Google’s popup flow completes.
+- [x] Diagnose why the deployed app reports missing Picker browser configuration after successful Google Drive authorization.
+- [x] Deploy the locally validated Picker guard fix that removes the premature `google.picker` check, then confirm the new GitHub Pages build is live.
+- [x] Retest the live app on device: connect Drive, choose a Markdown file, and verify the Google Picker opens inside The Shelf.
+- [x] Diagnose the Drive API file-version read failure that occurs after a file is successfully selected in the live Picker.
+- [x] Add and deploy the required Drive App ID to the Picker builder for `drive.file` selected-file access.
+- [x] Retest the live app after commit `90e7659`: select `vocab.md` and confirm its metadata and content load without the post-selection read error.
+- [x] Capture explicit user-visible confirmation that `vocab.md` entries appear in the Library after live selection.
+- [x] Obtain a concise textual confirmation of the selected `vocab.md` filename and the 174 parsed Library entries for the release record.
 - [ ] Configure the shared public Google OAuth Client ID and rotate the unnecessary exposed OAuth client secret.
 - [x] Choose a free static host before registering the final website origin in Google OAuth.
 - [x] Create the confirmed private `bettercall-gautam/vocab-sync` repository and upload the current Vocab Sync project.
 - [x] Choose whether to make the repository public for free GitHub Pages or keep it private and use a different free static host.
 - [x] Audit the repository for exposed secrets before requesting public visibility for GitHub Pages.
-- [ ] Change the confirmed `bettercall-gautam/vocab-sync` repository visibility to public and configure GitHub Pages deployment.
+- [x] Change the confirmed `bettercall-gautam/vocab-sync` repository visibility to public and configure GitHub Pages deployment.
 - [x] Add a GitHub Actions workflow that builds the static Vite app and deploys it to GitHub Pages.
 - [x] Configure Vite's GitHub Pages base path and verify the production static build.
-- [ ] Replace the app-limited sandbox GitHub CLI credential with a repository-write credential, then push the pending Pages deployment commit.
-- [ ] Diagnose and resolve the blank GitHub device-authorization page before continuing the credential replacement.
+- [x] Replace the app-limited sandbox GitHub CLI credential and complete the pending Pages deployment commit through the available authenticated GitHub interface.
+- [x] Diagnose and resolve the blank GitHub device-authorization page before continuing the credential replacement.
+- [ ] Deliver the validated GitHub Pages configuration through the GitHub repository API because Git HTTPS push was rejected twice despite verified administrative access.
+- [x] Commit the validated GitHub Pages configuration through the authenticated GitHub web interface because the integration credential also rejected repository API writes.
+- [x] Fix the GitHub Actions workflow setup order so pnpm is installed before Node cache configuration, resolving the verified `pnpm` executable error.
+- [x] Consolidate the workflow package-manager configuration by placing pnpm setup before Node cache setup and using the package.json pinned pnpm version only, resolving the verified duplicate-version error.
+- [ ] Re-verify the plain GitHub Pages `/vocab-sync/` URL after cache propagation and resolve any remaining internal 404 behavior.
+- [x] Diagnose the persistent deployed 404 after the first router-base correction before making any further routing change.
 - [ ] Verify the authorized GitHub connector with a connector-backed read-only repository listing before using it for deployment.
 - [x] Verify authenticated GitHub CLI repository access for the planned GitHub Pages deployment.
 - [ ] Prepare a static Vite deployment build for free Cloudflare Pages hosting.

@@ -33,6 +33,7 @@ import {
   type DriveFileSnapshot,
   type VocabularyEntry,
 } from "@/lib/vocabulary";
+import { getDriveAppId, hasPickerBootstrapPrerequisites } from "@/lib/google-picker";
 
 type DriveConnection = {
   token: string;
@@ -125,6 +126,7 @@ export default function Home() {
   const driveClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   const pickerApiKey = import.meta.env.VITE_GOOGLE_PICKER_API_KEY;
   const shelfFolderId = import.meta.env.VITE_THE_SHELF_FOLDER_ID;
+  const driveAppId = getDriveAppId(driveClientId);
 
   function updateRouterKey(value: string) {
     setOpenRouterKey(value);
@@ -175,13 +177,21 @@ export default function Home() {
       toast.error("Connect Google Drive before choosing a file.");
       return;
     }
-    if (!pickerApiKey || !shelfFolderId || !(window as any).google?.picker || !window.gapi) {
+    if (!hasPickerBootstrapPrerequisites({
+      apiKey: pickerApiKey,
+      folderId: shelfFolderId,
+      hasGapi: Boolean(window.gapi),
+    }) || !driveAppId) {
       setSetupExpanded(true);
       toast.error("The Drive file picker needs the browser API key and The Shelf folder ID.");
       return;
     }
 
     window.gapi.load("picker", () => {
+      if (!(window as any).google?.picker) {
+        toast.error("Google Drive's file picker could not finish loading. Try again in a moment.");
+        return;
+      }
       const view = new (window as any).google.picker.DocsView((window as any).google.picker.ViewId.DOCS)
         .setParent(shelfFolderId)
         .setMimeTypes("text/markdown")
@@ -189,6 +199,7 @@ export default function Home() {
         .setSelectFolderEnabled(false);
       const picker = new (window as any).google.picker.PickerBuilder()
         .setDeveloperKey(pickerApiKey)
+        .setAppId(driveAppId)
         .setOAuthToken(connection.token)
         .addView(view)
         .setTitle("Choose a Markdown file from The Shelf")
