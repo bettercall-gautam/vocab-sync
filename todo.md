@@ -59,3 +59,6 @@
 - [x] Rebuild the entire watched section so every movie and series title is inside one valid numbered Markdown table with no scattered rows.
 - [x] Add the user-provided watched movie and series titles to the `Watched` section of `watchlist.md` in The Shelf.
 - [x] Enforce concise AI-generated meanings and examples after the owner reported an overly long `hypothesis` definition and example.
+- [x] Enable Drive sync after Library edits or deletions by tracking changes that are not new drafts.
+- [x] Repair the failed concise-generation GitHub Pages deployment after the GitHub web editor truncated a source line.
+- [x] Retest the live delete and sync path: remove one Library entry, confirm Sync to Drive becomes active, then complete the Drive sync.

@@ -25,6 +25,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   createFingerprint,
   hasDriveConflict,
+  hasSyncableVocabularyChanges,
   isConciseVocabularyEntry,
   mergeVocabularyEntries,
   normalizeWords,
@@ -92,6 +93,7 @@ export default function Home() {
   const [rememberKey, setRememberKey] = useState(false);
   const [connection, setConnection] = useState<DriveConnection | null>(null);
   const [selectedFile, setSelectedFile] = useState<SelectedFile | null>(null);
+  const [libraryDirty, setLibraryDirty] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [setupExpanded, setSetupExpanded] = useState(false);
@@ -123,6 +125,7 @@ export default function Home() {
   }, []);
 
   const wordsReady = useMemo(() => normalizeWords(rawWords), [rawWords]);
+  const hasSyncableChanges = useMemo(() => hasSyncableVocabularyChanges(drafts, libraryDirty), [drafts, libraryDirty]);
   const connectionReady = Boolean(connection && connection.expiresAt > Date.now());
   const driveClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   const pickerApiKey = import.meta.env.VITE_GOOGLE_PICKER_API_KEY;
@@ -216,6 +219,7 @@ export default function Home() {
               fingerprint: createFingerprint(snapshot.content),
             });
             setLibrary(parseVocabularyMarkdown(snapshot.content));
+            setLibraryDirty(false);
             toast.success(`${snapshot.name} is ready to edit.`);
           } catch (error) {
             toast.error(error instanceof Error ? error.message : "Could not open that file.");
@@ -240,10 +244,12 @@ export default function Home() {
 
   function updateLibraryEntry(id: string, field: keyof Pick<VocabularyEntry, "word" | "meaning" | "example">, value: string) {
     setLibrary(current => current.map(entry => (entry.id === id ? { ...entry, [field]: value } : entry)));
+    setLibraryDirty(true);
   }
 
   function deleteLibraryEntry(id: string) {
     setLibrary(current => current.filter(entry => entry.id !== id));
+    setLibraryDirty(true);
     toast.message("Entry removed locally. Sync to Drive to make the change permanent.");
   }
 
@@ -340,8 +346,8 @@ export default function Home() {
       return;
     }
     const cleanDrafts = drafts.filter(entry => entry.word.trim() && entry.meaning.trim() && entry.example.trim());
-    if (!cleanDrafts.length) {
-      toast.error("Add at least one complete draft before syncing.");
+    if (!libraryDirty && !cleanDrafts.length) {
+      toast.error("Edit the Library or add at least one complete draft before syncing.");
       return;
     }
 
@@ -373,6 +379,7 @@ export default function Home() {
       });
       setLibrary(entries);
       setDrafts([]);
+      setLibraryDirty(false);
       toast.success(duplicates.length ? `Synced. ${duplicates.length} duplicate entries were skipped.` : "Vocabulary synced to Drive.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Sync failed. Your drafts are still safe on this device.");
@@ -520,7 +527,7 @@ export default function Home() {
                 <section className="rounded-3xl border border-[#ddd6c8] bg-[#fffdf8] p-5 shadow-[0_12px_30px_rgba(44,57,78,0.04)]">
                   <div className="flex items-center justify-between"><div className="flex items-center gap-2 text-[#7357a4]"><RefreshCw size={16} /><span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em]">Safe sync</span></div><span className="rounded-full bg-[#f2edf8] px-2 py-1 font-mono text-[9px] font-bold text-[#7357a4]">MANUAL</span></div>
                   <p className="mt-3 text-sm leading-6 text-[#576a80]">Every sync checks whether the file changed in Obsidian or Drive. If it did, Vocab Sync blocks the overwrite.</p>
-                  <Button onClick={syncToDrive} disabled={syncing || !drafts.length || !isOnline} className="mt-5 h-11 w-full rounded-xl bg-[#22716d] text-xs font-bold text-white hover:bg-[#195b58]">
+                  <Button onClick={syncToDrive} disabled={syncing || !hasSyncableChanges || !isOnline} className="mt-5 h-11 w-full rounded-xl bg-[#22716d] text-xs font-bold text-white hover:bg-[#195b58]">
                     {syncing ? <LoaderCircle size={15} className="mr-2 animate-spin" /> : <Upload size={15} className="mr-2" />} {syncing ? "Checking and syncing" : "Sync to Drive"}
                   </Button>
                 </section>

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   conciseVocabularyLimits,
   createFingerprint,
+  hasSyncableVocabularyChanges,
   hasDriveConflict,
   isConciseVocabularyEntry,
   isFreeOnlyModel,
@@ -93,5 +94,13 @@ describe("vocabulary helpers", () => {
     })).toBe(false);
     expect(conciseVocabularyLimits.meaningWords).toBe(8);
     expect(conciseVocabularyLimits.exampleWords).toBe(10);
+  });
+
+  it("allows a sync after a Library edit or deletion even with no new drafts", () => {
+    expect(hasSyncableVocabularyChanges([], true)).toBe(true);
+    expect(hasSyncableVocabularyChanges([], false)).toBe(false);
+    expect(hasSyncableVocabularyChanges([
+      { id: "draft-1", word: "hypothesis", meaning: "A testable idea.", example: "We tested the hypothesis.", createdAt: 0 },
+    ], false)).toBe(true);
   });
 });
