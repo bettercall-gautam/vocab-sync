@@ -30,7 +30,7 @@ import {
   normalizeWords,
   parseVocabularyMarkdown,
   parseGeneratedVocabularyEntries,
-  requestWithFreeFallback,
+  requestWithFreeModelRouter,
   renderVocabularyMarkdown,
   type DriveFileSnapshot,
   type VocabularyEntry,
@@ -434,7 +434,7 @@ export default function Home() {
     setGenerating(true);
     try {
       const requestGeneratedEntries = async (repairInstruction?: string) => {
-        const { value: entries, model } = await requestWithFreeFallback(async selectedModel => {
+        const { value } = await requestWithFreeModelRouter(async selectedModels => {
         const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
           headers: {
@@ -444,7 +444,7 @@ export default function Home() {
             "X-Title": "Vocab Sync",
           },
           body: JSON.stringify({
-            model: selectedModel,
+            models: selectedModels,
             messages: [
               {
                 role: "system",
@@ -459,19 +459,63 @@ export default function Home() {
                 }),
               },
             ],
-            response_format: { type: "json_object" },
-            temperature: 0.25,
+            response_format: {
+              type: "json_schema",
+              json_schema: {
+                name: "vocabulary_entries",
+                strict: true,
+                schema: {
+                  type: "object",
+                  properties: {
+                    entries: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          word: { type: "string", description: "The requested word or phrase." },
+                          meaning: { type: "string", description: "A direct simple meaning of at most eight words." },
+                          example: { type: "string", description: "A natural example sentence of at most ten words." },
+                        },
+                        required: ["word", "meaning", "example"],
+                        additionalProperties: false,
+                      },
+                    },
+                  },
+                  required: ["entries"],
+                  additionalProperties: false,
+                },
+              },
+            },
+            provider: {
+              allow_fallbacks: true,
+              require_parameters: true,
+              sort: { by: "latency", partition: "none" },
+            },
+            max_tokens: Math.min(700, Math.max(180, wordsReady.length * 64)),
+            temperature: 0.2,
           }),
         });
-          if (!response.ok) throw new Error("Free model unavailable");
+          if (!response.ok) {
+            const failure = await response.json().catch(() => null) as { error?: { message?: unknown; code?: unknown } } | null;
+            const detail = typeof failure?.error?.message === "string"
+              ? failure.error.message.replace(/\s+/g, " ").slice(0, 140)
+              : "No provider detail was returned.";
+            const code = typeof failure?.error?.code === "number" || typeof failure?.error?.code === "string"
+              ? ` (${failure.error.code})`
+              : "";
+            throw new Error(`OpenRouter ${response.status}${code}: ${detail}`);
+          }
           const payload = await response.json();
           const parsedEntries = parseGeneratedVocabularyEntries(payload.choices?.[0]?.message?.content);
           if (parsedEntries.length !== wordsReady.length) throw new Error("Model did not return every requested word.");
-          return parsedEntries;
+          return {
+            entries: parsedEntries,
+            model: typeof payload.model === "string" ? payload.model : "a verified free model",
+          };
         });
         return {
-          model,
-          entries: entries.map(entry => createEntry(entry.word, entry.meaning, entry.example)),
+          model: value.model,
+          entries: value.entries.map(entry => createEntry(entry.word, entry.meaning, entry.example)),
         };
       };
 

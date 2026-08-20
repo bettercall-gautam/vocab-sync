@@ -80,3 +80,5 @@
 - [x] Integrate the deployed Worker session flow into the GitHub Pages frontend, including automatic Drive restoration and safe session recovery controls.
 - [x] Replace the ambiguous OpenRouter key save toggle with a clear personal-device persistence control and explain Drive session reconnection.
 - [x] Document the Resume vocab.md control as a secure missing-device-session recovery path rather than a persistence path; automatic persistent-session restore now reloads the saved Library workspace and destination without a manual Drive reconnect.
+- [x] Diagnose why all four configured OpenRouter free fallbacks can fail and replace the current chain with a verified reliability-focused free-only strategy, including evaluation of Owl Alpha.
+- [ ] Publish the verified free-model routing update and validate a live generation request with the owner’s browser-stored OpenRouter key.

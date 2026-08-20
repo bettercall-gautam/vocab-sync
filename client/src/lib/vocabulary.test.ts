@@ -10,8 +10,9 @@ import {
   normalizeWords,
   parseGeneratedVocabularyEntries,
   parseVocabularyMarkdown,
+  freeModelFallbacks,
   renderVocabularyMarkdown,
-  requestWithFreeFallback,
+  requestWithFreeModelRouter,
 } from "./vocabulary";
 
 describe("vocabulary helpers", () => {
@@ -65,20 +66,57 @@ describe("vocabulary helpers", () => {
     expect(hasDriveConflict(expected, { version: "12", content: "edited in Obsidian" })).toBe(true);
   });
 
-  it("tries another free model when the first one is unavailable and never calls paid model IDs", async () => {
-    const called: string[] = [];
-    const result = await requestWithFreeFallback(
-      async model => {
-        called.push(model);
-        if (model === "openrouter/free") throw new Error("temporary outage");
+  it("uses five explicit verified free candidates and excludes the random free-model router", () => {
+    expect(freeModelFallbacks).toHaveLength(5);
+    expect(freeModelFallbacks.every(isFreeOnlyModel)).toBe(true);
+    expect(freeModelFallbacks).not.toContain("openrouter/free");
+    expect(freeModelFallbacks).toContain("google/gemma-4-26b-a4b-it:free");
+    expect(freeModelFallbacks).toContain("openai/gpt-oss-20b:free");
+    expect(isFreeOnlyModel("paid/provider-model")).toBe(false);
+  });
+
+  it("retries one transient multi-model request while preserving the complete free candidate list", async () => {
+    const calls: string[][] = [];
+    const result = await requestWithFreeModelRouter(
+      async models => {
+        calls.push([...models]);
+        if (calls.length === 1) throw new Error("OpenRouter 429: capacity temporarily busy");
         return "generated";
       },
-      ["openrouter/free", "nvidia/nemotron-3.5-lightning:free", "paid/provider-model"],
+      ["first:free", "second:free", "paid/provider-model"],
+      0,
     );
 
-    expect(result).toEqual({ value: "generated", model: "nvidia/nemotron-3.5-lightning:free" });
-    expect(called).toEqual(["openrouter/free", "nvidia/nemotron-3.5-lightning:free"]);
-    expect(isFreeOnlyModel("paid/provider-model")).toBe(false);
+    expect(result).toEqual({
+      value: "generated",
+      attempts: 2,
+      candidates: ["first:free", "second:free"],
+    });
+    expect(calls).toEqual([["first:free", "second:free"], ["first:free", "second:free"]]);
+  });
+
+  it("retries malformed free-model output once instead of surfacing it immediately", async () => {
+    let calls = 0;
+    const result = await requestWithFreeModelRouter(
+      async () => {
+        calls += 1;
+        if (calls === 1) throw new Error("Model response was not valid JSON.");
+        return "repaired";
+      },
+      ["only:free"],
+      0,
+    );
+
+    expect(result.value).toBe("repaired");
+    expect(result.attempts).toBe(2);
+  });
+
+  it("keeps an authentication failure specific instead of wasting a retry", async () => {
+    await expect(requestWithFreeModelRouter(
+      async () => { throw new Error("OpenRouter 401: invalid API key"); },
+      ["only:free"],
+      0,
+    )).rejects.toThrow("OpenRouter 401: invalid API key");
   });
 
   it("accepts compact vocabulary notes and rejects overlong model output", () => {

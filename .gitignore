@@ -15,6 +15,7 @@ build/
 .env.production.local
 cloudflare-worker/.dev.vars
 cloudflare-worker/.wrangler/
+cloudflare-worker/worker-configuration.d.ts
 
 # IDE and editor files
 .vscode/

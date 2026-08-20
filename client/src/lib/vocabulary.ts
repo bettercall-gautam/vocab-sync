@@ -113,11 +113,14 @@ export function hasDriveConflict(
   return expected.version !== latest.version || expected.fingerprint !== createFingerprint(latest.content);
 }
 
+// Verified against OpenRouter's public catalog on 2026-08-20. Every model is free
+// and advertises structured-output support, unlike the previous generic router chain.
 export const freeModelFallbacks = [
-  "openrouter/free",
-  "nvidia/nemotron-3.5-lightning:free",
+  "google/gemma-4-26b-a4b-it:free",
+  "openai/gpt-oss-20b:free",
   "z-ai/glm-5.2:free",
-  "google/gemma-4-31b-it:free",
+  "liquid/lfm-2.5-2.6b:free",
+  "nvidia/nemotron-3-super-120b-a12b:free",
 ] as const;
 
 export function isFreeOnlyModel(model: string): boolean {
@@ -174,21 +177,49 @@ export function hasSyncableVocabularyChanges(drafts: VocabularyEntry[], libraryD
   return libraryDirty || drafts.some(entry => Boolean(entry.word.trim() && entry.meaning.trim() && entry.example.trim()));
 }
 
-export async function requestWithFreeFallback<T>(
-  request: (model: string) => Promise<T>,
+export type FreeModelRouterResult<T> = {
+  value: T;
+  attempts: number;
+  candidates: string[];
+};
+
+function isRetryableFreeModelFailure(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /\b(408|409|425|429|500|502|503|504)\b|network|timeout|temporar|busy|overload|not valid json|usable vocabulary|did not return every requested word/i.test(message);
+}
+
+function conciseFailureReason(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.replace(/\s+/g, " ").trim().slice(0, 180) || "Unknown OpenRouter error";
+}
+
+/**
+ * Sends one request with explicit free-only model fallbacks. OpenRouter can pick the
+ * fastest compatible free endpoint, avoiding a slow sequence of browser-side requests.
+ * A single short retry is reserved for transient capacity and network errors.
+ */
+export async function requestWithFreeModelRouter<T>(
+  request: (models: readonly string[]) => Promise<T>,
   models: readonly string[] = freeModelFallbacks,
-): Promise<{ value: T; model: string }> {
-  const attempted: string[] = [];
-  for (const model of models) {
-    if (!isFreeOnlyModel(model)) continue;
-    attempted.push(model);
+  retryDelayMs = 350,
+): Promise<FreeModelRouterResult<T>> {
+  const candidates = models.filter(isFreeOnlyModel);
+  if (!candidates.length) throw new Error("No free model candidates are configured.");
+
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
     try {
-      return { value: await request(model), model };
-    } catch {
-      // Free providers can be temporarily full or unavailable. Try the next free model only.
+      return { value: await request(candidates), attempts: attempt, candidates };
+    } catch (error) {
+      lastError = error;
+      if (attempt === 2 || !isRetryableFreeModelFailure(error)) break;
+      if (retryDelayMs > 0) await new Promise(resolve => window.setTimeout(resolve, retryDelayMs));
     }
   }
-  throw new Error(`Free models were busy or returned unusable output. Try again in a moment. Tried ${attempted.length} free options.`);
+
+  throw new Error(
+    `Free generation could not run after ${candidates.length} verified free models. ${conciseFailureReason(lastError)}. Your words are still safe.`,
+  );
 }
 
 export function mergeVocabularyEntries(
