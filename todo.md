@@ -81,4 +81,8 @@
 - [x] Replace the ambiguous OpenRouter key save toggle with a clear personal-device persistence control and explain Drive session reconnection.
 - [x] Document the Resume vocab.md control as a secure missing-device-session recovery path rather than a persistence path; automatic persistent-session restore now reloads the saved Library workspace and destination without a manual Drive reconnect.
 - [x] Diagnose why all four configured OpenRouter free fallbacks can fail and replace the current chain with a verified reliability-focused free-only strategy, including evaluation of Owl Alpha.
-- [ ] Publish the verified free-model routing update and validate a live generation request with the owner’s browser-stored OpenRouter key.
+- [x] Recover GitHub repository-write authorization after the configured connector rejected both Git and REST publication attempts with HTTP 403.
+- [x] Publish the verified free-model routing update to GitHub Pages and confirm the deployment workflow succeeds.
+- [ ] Validate a live generation request in the owner’s browser where the user-managed OpenRouter key is stored.
+- [x] Diagnose and harden the OpenRouter request path for the reported 401: verified the deployed header source, normalize pasted key formats, use OpenRouter’s documented title header, and show precise 401 recovery guidance.
+- [ ] Publish the OpenRouter 401 handling update and retest generation on the owner’s browser.

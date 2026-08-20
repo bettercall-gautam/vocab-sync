@@ -27,6 +27,7 @@ import {
   hasSyncableVocabularyChanges,
   isConciseVocabularyEntry,
   mergeVocabularyEntries,
+  normalizeOpenRouterApiKey,
   normalizeWords,
   parseVocabularyMarkdown,
   parseGeneratedVocabularyEntries,
@@ -425,7 +426,8 @@ export default function Home() {
       toast.error("Paste at least one word or phrase first.");
       return;
     }
-    if (!openRouterKey.trim()) {
+    const openRouterToken = normalizeOpenRouterApiKey(openRouterKey);
+    if (!openRouterToken) {
       setSetupExpanded(true);
       toast.error("Add your OpenRouter key to generate entries.");
       return;
@@ -438,10 +440,10 @@ export default function Home() {
         const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${openRouterKey.trim()}`,
+            "Authorization": `Bearer ${openRouterToken}`,
             "Content-Type": "application/json",
             "HTTP-Referer": window.location.origin,
-            "X-Title": "Vocab Sync",
+            "X-OpenRouter-Title": "Vocab Sync",
           },
           body: JSON.stringify({
             models: selectedModels,
@@ -497,6 +499,9 @@ export default function Home() {
         });
           if (!response.ok) {
             const failure = await response.json().catch(() => null) as { error?: { message?: unknown; code?: unknown } } | null;
+            if (response.status === 401) {
+              throw new Error("OpenRouter did not accept the saved key. In Free browser setup, replace it with a fresh key from OpenRouter, then retry. Your words are still safe.");
+            }
             const detail = typeof failure?.error?.message === "string"
               ? failure.error.message.replace(/\s+/g, " ").slice(0, 140)
               : "No provider detail was returned.";

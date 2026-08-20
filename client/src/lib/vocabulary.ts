@@ -127,6 +127,14 @@ export function isFreeOnlyModel(model: string): boolean {
   return model === "openrouter/free" || model.endsWith(":free");
 }
 
+/**
+ * Accept either a raw OpenRouter key or a value copied from an HTTP example.
+ * Whitespace and an accidental Bearer prefix are not part of the API key.
+ */
+export function normalizeOpenRouterApiKey(value: string): string {
+  return value.trim().replace(/^Bearer\s+/i, "").replace(/\s+/g, "");
+}
+
 function countWords(value: string): number {
   return value.trim().split(/\s+/).filter(Boolean).length;
 }

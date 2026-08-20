@@ -7,6 +7,7 @@ import {
   isConciseVocabularyEntry,
   isFreeOnlyModel,
   mergeVocabularyEntries,
+  normalizeOpenRouterApiKey,
   normalizeWords,
   parseGeneratedVocabularyEntries,
   parseVocabularyMarkdown,
@@ -73,6 +74,11 @@ describe("vocabulary helpers", () => {
     expect(freeModelFallbacks).toContain("google/gemma-4-26b-a4b-it:free");
     expect(freeModelFallbacks).toContain("openai/gpt-oss-20b:free");
     expect(isFreeOnlyModel("paid/provider-model")).toBe(false);
+  });
+
+  it("normalizes a raw or accidentally prefixed OpenRouter key without exposing its value", () => {
+    expect(normalizeOpenRouterApiKey("  sk-or-v1-example  ")).toBe("sk-or-v1-example");
+    expect(normalizeOpenRouterApiKey("Bearer sk-or-v1-example\n")).toBe("sk-or-v1-example");
   });
 
   it("retries one transient multi-model request while preserving the complete free candidate list", async () => {
