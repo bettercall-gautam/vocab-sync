@@ -138,6 +138,10 @@ export function isConciseVocabularyEntry(entry: GeneratedVocabularyText): boolea
   );
 }
 
+export function hasSyncableVocabularyChanges(drafts: VocabularyEntry[], libraryDirty: boolean): boolean {
+  return libraryDirty || drafts.some(entry => Boolean(entry.word.trim() && entry.meaning.trim() && entry.example.trim()));
+}
+
 export async function requestWithFreeFallback<T>(
   request: (model: string) => Promise<T>,
   models: readonly string[] = freeModelFallbacks,
