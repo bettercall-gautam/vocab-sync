@@ -43,6 +43,13 @@ import {
   type RememberedMarkdownDestination,
   type WorkspaceView,
 } from "@/lib/remembered-destination";
+import {
+  driveSessionStorageKey,
+  getDriveSessionErrorMessage,
+  getDriveWorkerOrigin,
+  isDriveReauthorizationError,
+  parseDriveSessionFromHash,
+} from "@/lib/drive-session";
 
 type DriveConnection = {
   token: string;
@@ -101,6 +108,8 @@ export default function Home() {
   const [openRouterKey, setOpenRouterKey] = useState("");
   const [rememberKey, setRememberKey] = useState(false);
   const [connection, setConnection] = useState<DriveConnection | null>(null);
+  const [deviceSession, setDeviceSession] = useState<string | null>(() => localStorage.getItem(driveSessionStorageKey));
+  const [restoringDriveSession, setRestoringDriveSession] = useState(false);
   const [selectedFile, setSelectedFile] = useState<SelectedFile | null>(null);
   const [rememberedDestination, setRememberedDestination] = useState<RememberedMarkdownDestination | null>(() => (
     parseRememberedMarkdownDestination(localStorage.getItem(localSelectedFileKey))
@@ -140,13 +149,32 @@ export default function Home() {
     };
   }, []);
 
+  useEffect(() => {
+    const returnedSession = parseDriveSessionFromHash(window.location.hash);
+    if (!returnedSession) return;
+
+    localStorage.setItem(driveSessionStorageKey, returnedSession);
+    setDeviceSession(returnedSession);
+    const cleanUrl = new URL(window.location.href);
+    cleanUrl.hash = "";
+    window.history.replaceState({}, document.title, cleanUrl.toString());
+  }, []);
+
   const wordsReady = useMemo(() => normalizeWords(rawWords), [rawWords]);
   const hasSyncableChanges = useMemo(() => hasSyncableVocabularyChanges(drafts, libraryDirty), [drafts, libraryDirty]);
   const connectionReady = Boolean(connection && connection.expiresAt > Date.now());
   const driveClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   const pickerApiKey = import.meta.env.VITE_GOOGLE_PICKER_API_KEY;
   const shelfFolderId = import.meta.env.VITE_THE_SHELF_FOLDER_ID;
+  const workerOrigin = getDriveWorkerOrigin(import.meta.env.VITE_DRIVE_SESSION_WORKER_URL);
   const driveAppId = getDriveAppId(driveClientId);
+
+  useEffect(() => {
+    if (!workerOrigin || !deviceSession || !isOnline) return;
+    void restorePersistentDriveSession(deviceSession, true);
+  // The session should refresh only when its stable identifier, endpoint, or network state changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deviceSession, isOnline, workerOrigin]);
 
   function updateRouterKey(value: string) {
     setOpenRouterKey(value);
@@ -192,9 +220,56 @@ export default function Home() {
     }
   }
 
+  function clearLocalDriveSession() {
+    localStorage.removeItem(driveSessionStorageKey);
+    setDeviceSession(null);
+  }
+
+  async function requestPersistentAccessToken(session: string): Promise<DriveConnection> {
+    if (!workerOrigin) throw new Error("persistent_drive_not_configured");
+    const response = await fetch(`${workerOrigin}/session/access-token`, {
+      method: "POST",
+      headers: { "X-Vocab-Sync-Session": session },
+    });
+    const body = await response.json().catch(() => null) as { accessToken?: unknown; expiresInSeconds?: unknown; error?: unknown } | null;
+    if (!response.ok || typeof body?.accessToken !== "string") {
+      throw new Error(typeof body?.error === "string" ? body.error : "token_refresh_failed");
+    }
+
+    return {
+      token: body.accessToken,
+      expiresAt: Date.now() + (typeof body.expiresInSeconds === "number" ? body.expiresInSeconds : 3600) * 1000,
+    };
+  }
+
+  async function restorePersistentDriveSession(session: string, automatic = false) {
+    setRestoringDriveSession(true);
+    try {
+      const nextConnection = await requestPersistentAccessToken(session);
+      setConnection(nextConnection);
+      await restoreRememberedMarkdownDestination(nextConnection.token);
+      if (!automatic || !rememberedDestination) toast.success("Drive restored securely on this device.");
+    } catch (error) {
+      const code = error instanceof Error ? error.message : null;
+      setConnection(null);
+      if (isDriveReauthorizationError(code)) clearLocalDriveSession();
+      toast.error(getDriveSessionErrorMessage(code));
+    } finally {
+      setRestoringDriveSession(false);
+    }
+  }
+
   function connectGoogleDrive() {
     if (!isOnline) {
       toast.error("You are offline. Reconnect before accessing Google Drive.");
+      return;
+    }
+    if (workerOrigin) {
+      if (deviceSession) {
+        void restorePersistentDriveSession(deviceSession);
+        return;
+      }
+      window.location.assign(`${workerOrigin}/auth/google/start`);
       return;
     }
     if (!driveClientId) {
@@ -224,6 +299,54 @@ export default function Home() {
       },
     });
   client.requestAccessToken({ prompt: "" });
+  }
+
+  async function forgetThisDevice() {
+    if (!workerOrigin || !deviceSession) return;
+    if (hasSyncableChanges) {
+      toast.error("Sync or clear local changes before forgetting this device.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${workerOrigin}/session`, {
+        method: "DELETE",
+        headers: { "X-Vocab-Sync-Session": deviceSession },
+      });
+      if (!response.ok) throw new Error("forget_device_failed");
+      clearLocalDriveSession();
+      setConnection(null);
+      setSelectedFile(null);
+      setLibrary([]);
+      setLibraryDirty(false);
+      toast.success("This device will need one secure Drive reconnect next time.");
+    } catch {
+      toast.error("This device could not be forgotten yet. Check the connection and try again.");
+    }
+  }
+
+  async function disconnectDriveEverywhere() {
+    if (!workerOrigin || !deviceSession) return;
+    if (hasSyncableChanges) {
+      toast.error("Sync or clear local changes before disconnecting Drive everywhere.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${workerOrigin}/connection`, {
+        method: "DELETE",
+        headers: { "X-Vocab-Sync-Session": deviceSession },
+      });
+      if (!response.ok) throw new Error("disconnect_everywhere_failed");
+      clearLocalDriveSession();
+      setConnection(null);
+      setSelectedFile(null);
+      setLibrary([]);
+      setLibraryDirty(false);
+      toast.success("Drive disconnected everywhere. Each device now needs a new secure connection.");
+    } catch {
+      toast.error("Drive could not be disconnected everywhere yet. Check the connection and try again.");
+    }
   }
 
   function pickMarkdownFile() {
@@ -482,10 +605,10 @@ export default function Home() {
             <div className="flex items-center gap-2">
               <span className={`hidden items-center gap-2 rounded-full border px-3 py-2 font-mono text-[10px] uppercase tracking-[0.08em] sm:flex ${!isOnline ? "border-[#efc1bd] bg-[#fff0ee] text-[#ae4942]" : connectionReady ? "border-[#a6d5c6] bg-[#edf8f2] text-[#247457]" : "border-[#e5d3a8] bg-[#fff8e6] text-[#936a18]"}`}>
                 <span className={`h-1.5 w-1.5 rounded-full ${!isOnline ? "bg-[#d85b51]" : connectionReady ? "bg-[#35a97b]" : "bg-[#d29a26]"}`} />
-                {!isOnline ? "Offline" : connectionReady ? "Drive connected" : "Drive not connected"}
+                {!isOnline ? "Offline" : restoringDriveSession ? "Restoring Drive" : connectionReady ? "Drive connected" : "Drive not connected"}
               </span>
-              <Button variant="outline" onClick={connectGoogleDrive} className="h-10 rounded-xl border-[#c8d0d8] bg-white/70 px-3 text-xs font-semibold text-[#27415f] hover:bg-white sm:px-4">
-                <Cloud size={15} className="mr-2" /> {connectionReady ? "Reconnect" : rememberedDestination?.name ? `Resume ${rememberedDestination.name}` : "Connect Drive"}
+              <Button variant="outline" onClick={connectGoogleDrive} disabled={restoringDriveSession} className="h-10 rounded-xl border-[#c8d0d8] bg-white/70 px-3 text-xs font-semibold text-[#27415f] hover:bg-white sm:px-4">
+                {restoringDriveSession ? <LoaderCircle size={15} className="mr-2 animate-spin" /> : <Cloud size={15} className="mr-2" />} {restoringDriveSession ? "Restoring" : connectionReady ? "Refresh Drive" : deviceSession ? "Restore Drive" : rememberedDestination?.name ? `Resume ${rememberedDestination.name}` : "Connect Drive"}
               </Button>
             </div>
           </header>
@@ -596,6 +719,15 @@ export default function Home() {
                   <div className="flex items-center gap-2 text-[#9a6c13]"><TriangleAlert size={16} /><span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em]">Free tier rule</span></div>
                   <p className="mt-2 text-xs leading-5 text-[#796131]">The app sends requests only to OpenRouter’s free model pool. It stops instead of falling back to a paid model.</p>
                 </section>
+
+                {workerOrigin && deviceSession && (
+                  <section className="rounded-3xl border border-[#d9d2c5] bg-[#f7f3ea] p-5">
+                    <div className="flex items-center gap-2 text-[#506279]"><LockKeyhole size={16} /><span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em]">Device access</span></div>
+                    <p className="mt-2 text-xs leading-5 text-[#63738a]">This device can restore short-lived Drive access without keeping a Google token in browser storage.</p>
+                    <Button variant="outline" onClick={forgetThisDevice} disabled={syncing || hasSyncableChanges} className="mt-4 h-10 w-full rounded-xl border-[#cbd4da] bg-white text-xs font-semibold text-[#3f5873] hover:bg-[#f7fafb]">Forget this device</Button>
+                    <Button variant="ghost" onClick={disconnectDriveEverywhere} disabled={syncing || hasSyncableChanges} className="mt-2 h-9 w-full rounded-xl text-xs font-semibold text-[#8b554f] hover:bg-[#fbebea] hover:text-[#9f443c]">Disconnect Drive everywhere</Button>
+                  </section>
+                )}
               </aside>
             </div>
           ) : (
@@ -619,7 +751,7 @@ export default function Home() {
 
           <section className="mx-auto mt-6 max-w-6xl rounded-2xl border border-[#d8d1c4] bg-[#f3efe5]/80 px-4 py-3 sm:px-5">
             <button onClick={() => setSetupExpanded(current => !current)} className="flex w-full items-center justify-between text-left"><span className="flex items-center gap-2 text-xs font-bold text-[#516780]"><KeyRound size={15} /> Free browser setup</span><ChevronRight size={16} className={`text-[#8191a4] transition-transform ${setupExpanded ? "rotate-90" : ""}`} /></button>
-            {setupExpanded && <div className="mt-3 border-t border-[#dbd3c5] pt-3 text-xs leading-5 text-[#62748b]"><p>Before Drive sync can work, add a public Google OAuth Client ID, a browser restricted Google Picker API key, and The Shelf folder ID to the deployment configuration. Add your OpenRouter key below for free-model generation.</p><div className="mt-3 flex flex-col gap-2 sm:flex-row"><Input type="password" value={openRouterKey} onChange={event => updateRouterKey(event.target.value)} placeholder="OpenRouter API key" className="h-10 flex-1 bg-white text-xs shadow-none" /><label className="flex h-10 cursor-pointer items-center gap-2 rounded-xl border border-[#cbd4da] bg-white px-3 text-xs font-semibold text-[#3f5873] hover:bg-[#f7fafb]"><input type="checkbox" checked={rememberKey} onChange={event => toggleRememberKey(event.target.checked)} className="h-4 w-4 rounded border-[#8ea0b4] accent-[#22716d]" />Remember key on this device</label></div><p className="mt-2 text-[11px] leading-4 text-[#7a899b]">Use this only on your own locked device. Drive access reconnects after a browser restart for safety.</p></div>}
+            {setupExpanded && <div className="mt-3 border-t border-[#dbd3c5] pt-3 text-xs leading-5 text-[#62748b]"><p>Drive uses a protected server connection. This browser stores only a revocable device session, while Google refresh tokens stay encrypted outside GitHub and browser storage. Add your OpenRouter key below for free-model generation.</p><div className="mt-3 flex flex-col gap-2 sm:flex-row"><Input type="password" value={openRouterKey} onChange={event => updateRouterKey(event.target.value)} placeholder="OpenRouter API key" className="h-10 flex-1 bg-white text-xs shadow-none" /><label className="flex h-10 cursor-pointer items-center gap-2 rounded-xl border border-[#cbd4da] bg-white px-3 text-xs font-semibold text-[#3f5873] hover:bg-[#f7fafb]"><input type="checkbox" checked={rememberKey} onChange={event => toggleRememberKey(event.target.checked)} className="h-4 w-4 rounded border-[#8ea0b4] accent-[#22716d]" />Remember key on this device</label></div><p className="mt-2 text-[11px] leading-4 text-[#7a899b]">Use this only on your own locked device. Drive restores silently after a browser restart unless you choose to forget this device.</p></div>}
           </section>
         </main>
       </div>

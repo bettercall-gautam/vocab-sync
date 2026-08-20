@@ -77,4 +77,5 @@
 - [x] Define the Cloudflare persistent Drive security model, D1 schema, endpoint contract, and Worker code foundation without introducing secrets into the repository.
 - [x] Correct and test the Worker OAuth start URL so it sends the configured Google client ID, requests offline Drive access, and uses the exact Worker callback.
 - [x] Deploy and validate the free Cloudflare Worker plus D1 foundation, including the public health endpoint, encrypted-token tables, unit tests, and a Worker TypeScript check.
+- [ ] Integrate the deployed Worker session flow into the GitHub Pages frontend, including automatic Drive restoration and safe session recovery controls.
 - [x] Replace the ambiguous OpenRouter key save toggle with a clear personal-device persistence control and explain Drive session reconnection.

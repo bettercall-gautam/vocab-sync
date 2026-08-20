@@ -35,6 +35,7 @@ jobs:
         run: pnpm build:static
         env:
           GITHUB_ACTIONS: "true"
+          VITE_DRIVE_SESSION_WORKER_URL: "https://vocab-sync-drive-auth.gautamjaizz007.workers.dev"
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
@@ -50,4 +51,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
