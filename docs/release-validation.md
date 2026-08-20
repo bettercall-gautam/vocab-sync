@@ -26,3 +26,7 @@ The owner completed a live end-to-end verification after deployment. A Library d
 Repository documentation publication began with commit `4798846`, which added and rendered the root README on GitHub. The README links to the companion user guide under `docs/user-guide.md`.
 
 At a 375 pixel mobile viewport, Vocab Sync now shows a two-button navigation control directly below the header. Both **Capture** and **Library** are visible without relying on the desktop sidebar.
+
+GitHub Pages run 18 completed successfully for commit `406cf9c`. The release includes the mobile Capture and Library switcher plus free-only retries for malformed, fenced, empty, or incomplete model responses.
+
+The local setup panel now exposes a standard **Remember key on this device** checkbox and explains that it is appropriate only on an owner-controlled locked device. It also states that Drive access reconnects after a browser restart for safety.
