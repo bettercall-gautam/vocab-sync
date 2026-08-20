@@ -16,8 +16,13 @@
 - [ ] Document the public Google OAuth client ID, Google Picker API key, The Shelf folder ID, and user-managed OpenRouter API key setup.
 - [ ] Complete Google Auth Platform identity configuration and create the public browser OAuth client and restricted Picker API key.
 - [ ] Configure the shared public Google OAuth Client ID and rotate the unnecessary exposed OAuth client secret.
-- [ ] Choose a free static host before registering the final website origin in Google OAuth.
-- [ ] Create the confirmed private `bettercall-gautam/vocab-sync` repository and upload the current Vocab Sync project.
+- [x] Choose a free static host before registering the final website origin in Google OAuth.
+- [x] Create the confirmed private `bettercall-gautam/vocab-sync` repository and upload the current Vocab Sync project.
+- [x] Choose whether to make the repository public for free GitHub Pages or keep it private and use a different free static host.
+- [x] Audit the repository for exposed secrets before requesting public visibility for GitHub Pages.
+- [ ] Change the confirmed `bettercall-gautam/vocab-sync` repository visibility to public and configure GitHub Pages deployment.
+- [x] Add a GitHub Actions workflow that builds the static Vite app and deploys it to GitHub Pages.
+- [x] Configure Vite's GitHub Pages base path and verify the production static build.
 - [ ] Verify the authorized GitHub connector with a connector-backed read-only repository listing before using it for deployment.
 - [x] Verify authenticated GitHub CLI repository access for the planned GitHub Pages deployment.
 - [ ] Prepare a static Vite deployment build for free Cloudflare Pages hosting.
