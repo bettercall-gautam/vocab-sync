@@ -26,6 +26,7 @@ describe("remembered Markdown destination", () => {
 
   it("restores the last known workspace view safely", () => {
     expect(parseWorkspaceView("library")).toBe("library");
+    expect(parseWorkspaceView("review")).toBe("review");
     expect(parseWorkspaceView("capture")).toBe("capture");
     expect(parseWorkspaceView("unexpected")).toBe("capture");
     expect(parseWorkspaceView(null)).toBe("capture");

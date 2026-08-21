@@ -4,6 +4,7 @@ export type VocabularyEntry = {
   meaning: string;
   example: string;
   createdAt: number;
+  source?: "dictionary" | "ai" | "manual" | "imported" | "needs-review";
 };
 
 export type GeneratedVocabularyText = {

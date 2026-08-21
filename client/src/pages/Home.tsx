@@ -4,8 +4,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
   BookOpen,
+  Brain,
   ChevronRight,
   Cloud,
+  Download,
   FileText,
   FolderOpen,
   KeyRound,
@@ -15,6 +17,7 @@ import {
   PenLine,
   Plus,
   RefreshCw,
+  Search,
   Sparkles,
   TriangleAlert,
   Upload,
@@ -40,6 +43,17 @@ import {
   type DriveFileSnapshot,
   type VocabularyEntry,
 } from "@/lib/vocabulary";
+import {
+  createInitialReviewMetadata,
+  entryReviewKey,
+  isReviewDue,
+  parseReviewStore,
+  scheduleReview,
+  sourceLabel,
+  type EntrySource,
+  type ReviewRating,
+  type ReviewStore,
+} from "@/lib/review";
 import { getDriveAppId, hasPickerBootstrapPrerequisites } from "@/lib/google-picker";
 import {
   parseRememberedMarkdownDestination,
@@ -81,15 +95,44 @@ const localDraftKey = "vocab-sync-local-drafts";
 const localRouterKey = "vocab-sync-openrouter-key";
 const localSelectedFileKey = "vocab-sync-selected-markdown-destination";
 const localWorkspaceViewKey = "vocab-sync-workspace-view";
+const localReviewStoreKey = "vocab-sync-review-store";
 const driveScope = "https://www.googleapis.com/auth/drive.file";
 
-function createEntry(word = "", meaning = "", example = ""): VocabularyEntry {
+const googleIdentityScriptUrl = "https://accounts.google.com/gsi/client";
+const googlePickerScriptUrl = "https://apis.google.com/js/api.js";
+
+function loadExternalScript(src: string): Promise<void> {
+  const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
+  if (existing?.dataset.loaded === "true") return Promise.resolve();
+  if (existing) {
+    return new Promise((resolve, reject) => {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => reject(new Error("script_load_failed")), { once: true });
+    });
+  }
+
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = src;
+    script.async = true;
+    script.defer = true;
+    script.addEventListener("load", () => {
+      script.dataset.loaded = "true";
+      resolve();
+    }, { once: true });
+    script.addEventListener("error", () => reject(new Error("script_load_failed")), { once: true });
+    document.head.appendChild(script);
+  });
+}
+
+function createEntry(word = "", meaning = "", example = "", source?: EntrySource): VocabularyEntry {
   return {
     id: crypto.randomUUID(),
     word,
     meaning,
     example,
     createdAt: Date.now(),
+    ...(source ? { source } : {}),
   };
 }
 
@@ -126,6 +169,10 @@ export default function Home() {
   const [generating, setGenerating] = useState(false);
   const [dictionaryLookingUp, setDictionaryLookingUp] = useState(false);
   const [captureMode, setCaptureMode] = useState<CaptureMode>("smart");
+  const [reviewStore, setReviewStore] = useState<ReviewStore>(() => parseReviewStore(localStorage.getItem(localReviewStoreKey)));
+  const [reviewRevealed, setReviewRevealed] = useState(false);
+  const [librarySearch, setLibrarySearch] = useState("");
+  const [libraryFilter, setLibraryFilter] = useState<"all" | "due" | "new" | "known" | "needs-review">("all");
   const [setupExpanded, setSetupExpanded] = useState(false);
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
 
@@ -146,6 +193,25 @@ export default function Home() {
   useEffect(() => {
     localStorage.setItem(localWorkspaceViewKey, activeView);
   }, [activeView]);
+
+  useEffect(() => {
+    localStorage.setItem(localReviewStoreKey, JSON.stringify(reviewStore));
+  }, [reviewStore]);
+
+  useEffect(() => {
+    if (!library.length) return;
+    setReviewStore(current => {
+      let changed = false;
+      const next = { ...current };
+      for (const entry of library) {
+        const key = entryReviewKey(entry.word);
+        if (!key || next[key]) continue;
+        next[key] = createInitialReviewMetadata("imported");
+        changed = true;
+      }
+      return changed ? next : current;
+    });
+  }, [library]);
 
   useEffect(() => {
     const markOnline = () => setIsOnline(true);
@@ -171,6 +237,23 @@ export default function Home() {
 
   const wordsReady = useMemo(() => normalizeWords(rawWords), [rawWords]);
   const hasSyncableChanges = useMemo(() => hasSyncableVocabularyChanges(drafts, libraryDirty), [drafts, libraryDirty]);
+  const reviewQueue = useMemo(() => (
+    library.filter(entry => isReviewDue(reviewStore[entryReviewKey(entry.word)])).slice(0, 5)
+  ), [library, reviewStore]);
+  const activeReviewEntry = reviewQueue[0] ?? null;
+  const visibleLibrary = useMemo(() => {
+    const query = librarySearch.trim().toLocaleLowerCase();
+    return library.filter(entry => {
+      const metadata = reviewStore[entryReviewKey(entry.word)] ?? createInitialReviewMetadata("imported", 0);
+      const matchesQuery = !query || [entry.word, entry.meaning, entry.example].some(value => value.toLocaleLowerCase().includes(query));
+      const matchesFilter = libraryFilter === "all"
+        || (libraryFilter === "due" && isReviewDue(metadata))
+        || (libraryFilter === "new" && metadata.state === "new")
+        || (libraryFilter === "known" && metadata.state === "known")
+        || (libraryFilter === "needs-review" && metadata.source === "needs-review");
+      return matchesQuery && matchesFilter;
+    });
+  }, [library, libraryFilter, librarySearch, reviewStore]);
   const connectionReady = Boolean(connection && connection.expiresAt > Date.now());
   const driveClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   const pickerApiKey = import.meta.env.VITE_GOOGLE_PICKER_API_KEY;
@@ -268,7 +351,7 @@ export default function Home() {
     }
   }
 
-  function connectGoogleDrive() {
+  async function connectGoogleDrive() {
     if (!isOnline) {
       toast.error("You are offline. Reconnect before accessing Google Drive.");
       return;
@@ -286,10 +369,13 @@ export default function Home() {
       toast.error("Google Drive is not configured yet. Add the public Google client ID first.");
       return;
     }
-    if (!(window as any).google?.accounts?.oauth2) {
-      toast.error("Google sign in is still loading. Try again in a moment.");
+    try {
+      await loadExternalScript(googleIdentityScriptUrl);
+    } catch {
+      toast.error("Google sign in could not load. Check your connection and try again.");
       return;
     }
+    if (!(window as any).google?.accounts?.oauth2) return toast.error("Google sign in is still loading. Try again in a moment.");
 
     const client = (window as any).google.accounts.oauth2.initTokenClient({
       client_id: driveClientId,
@@ -358,9 +444,15 @@ export default function Home() {
     }
   }
 
-  function pickMarkdownFile() {
+  async function pickMarkdownFile() {
     if (!connectionReady || !connection) {
       toast.error("Connect Google Drive before choosing a file.");
+      return;
+    }
+    try {
+      await loadExternalScript(googlePickerScriptUrl);
+    } catch {
+      toast.error("Google Drive's file picker could not load. Check your connection and try again.");
       return;
     }
     if (!hasPickerBootstrapPrerequisites({
@@ -403,7 +495,7 @@ export default function Home() {
   }
 
   function addManualEntry() {
-    const manualEntries = wordsReady.length ? wordsReady.map(word => createEntry(word)) : [createEntry()];
+    const manualEntries = wordsReady.length ? wordsReady.map(word => createEntry(word, "", "", "manual")) : [createEntry("", "", "", "manual")];
     setDrafts(current => [...current, ...manualEntries]);
     setRawWords("");
     toast.success(`${manualEntries.length} editable manual draft${manualEntries.length === 1 ? "" : "s"} added.`);
@@ -411,7 +503,7 @@ export default function Home() {
 
   function preserveInputAsManualDrafts(reason: string) {
     if (!wordsReady.length) return;
-    const manualEntries = wordsReady.map(word => createEntry(word));
+    const manualEntries = wordsReady.map(word => createEntry(word, "", "", "needs-review"));
     const { entries, duplicates } = mergeVocabularyEntries([...library, ...drafts], manualEntries);
     const fresh = entries.slice(library.length + drafts.length);
     if (fresh.length) setDrafts(current => [...current, ...fresh]);
@@ -429,6 +521,40 @@ export default function Home() {
 
   function removeDraft(id: string) {
     setDrafts(current => current.filter(entry => entry.id !== id));
+  }
+
+  function markDraftForReview(id: string) {
+    setDrafts(current => current.map(entry => (entry.id === id ? { ...entry, source: "needs-review" } : entry)));
+    toast.message("Marked for your review. Edit the fields before syncing.");
+  }
+
+  function rateActiveReview(rating: ReviewRating) {
+    if (!activeReviewEntry) return;
+    const key = entryReviewKey(activeReviewEntry.word);
+    const existing = reviewStore[key] ?? createInitialReviewMetadata("imported");
+    setReviewStore(current => ({ ...current, [key]: scheduleReview(existing, rating) }));
+    setReviewRevealed(false);
+    toast.success(rating === "again" ? "No stress. This word returns in 10 minutes." : "Review scheduled. Your future self says thanks.");
+  }
+
+  function exportBackup(format: "markdown" | "csv") {
+    const cleanDrafts = drafts.filter(entry => entry.word.trim() && entry.meaning.trim() && entry.example.trim());
+    const entries = mergeVocabularyEntries(library, cleanDrafts).entries;
+    const content = format === "markdown"
+      ? renderVocabularyMarkdown(entries)
+      : [
+        "Word or Phrase,Simple Meaning,Example",
+        ...entries.map(entry => [entry.word, entry.meaning, entry.example]
+          .map(value => `"${value.replace(/"/g, '""')}"`).join(",")),
+      ].join("\n");
+    const blob = new Blob([content], { type: format === "markdown" ? "text/markdown" : "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = format === "markdown" ? "vocab-sync-backup.md" : "vocab-sync-backup.csv";
+    anchor.click();
+    URL.revokeObjectURL(url);
+    toast.success(`${format === "markdown" ? "Markdown" : "CSV"} backup downloaded. Drive was not changed.`);
   }
 
   function updateLibraryEntry(id: string, field: keyof Pick<VocabularyEntry, "word" | "meaning" | "example">, value: string) {
@@ -522,14 +648,14 @@ export default function Home() {
         });
         return {
           model: value.model,
-          entries: value.entries.map(entry => createEntry(entry.word, entry.meaning, entry.example)),
+          entries: value.entries.map(entry => createEntry(entry.word, entry.meaning, entry.example, "ai")),
         };
       };
 
       const { entries: rawGenerated, model } = await requestGeneratedEntries();
       const generated = rawGenerated.map(entry => {
         const conciseEntry = clampVocabularyEntryToConciseLimits(entry);
-        return createEntry(conciseEntry.word, conciseEntry.meaning, conciseEntry.example);
+        return createEntry(conciseEntry.word, conciseEntry.meaning, conciseEntry.example, "ai");
       });
       if (!generated.length) throw new Error("The free model returned an unusable result. Try again or add entries manually.");
       if (generated.some(entry => !isConciseVocabularyEntry(entry))) {
@@ -582,7 +708,7 @@ export default function Home() {
     try {
       const dictionaryEntry = await fetchDictionaryEntry(word);
       const { entries, duplicates } = mergeVocabularyEntries([...library, ...drafts], [
-        createEntry(dictionaryEntry.word, dictionaryEntry.meaning, dictionaryEntry.example),
+        createEntry(dictionaryEntry.word, dictionaryEntry.meaning, dictionaryEntry.example, "dictionary"),
       ]);
       const fresh = entries.slice(library.length + drafts.length);
       if (!fresh.length) {
@@ -656,6 +782,15 @@ export default function Home() {
         modifiedTime: fileInfo.modifiedTime,
         fingerprint: createFingerprint(updatedMarkdown),
       });
+      setReviewStore(current => {
+        const next = { ...current };
+        for (const entry of cleanDrafts) {
+          const key = entryReviewKey(entry.word);
+          if (!key) continue;
+          next[key] = current[key] ?? createInitialReviewMetadata(entry.source ?? "needs-review");
+        }
+        return next;
+      });
       setLibrary(entries);
       setDrafts([]);
       setLibraryDirty(false);
@@ -685,6 +820,7 @@ export default function Home() {
           <nav className="mt-12 space-y-1">
             {[
               { id: "capture", label: "Capture", icon: PenLine },
+              { id: "review", label: "Review", icon: Brain },
               { id: "library", label: "Library", icon: Library },
             ].map(item => {
               const Icon = item.icon;
@@ -692,11 +828,12 @@ export default function Home() {
               return (
                 <button
                   key={item.id}
-                  onClick={() => setActiveView(item.id as "capture" | "library")}
+                  onClick={() => setActiveView(item.id as WorkspaceView)}
                   className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all ${active ? "bg-[#d9ece8] text-[#184d53] shadow-sm" : "text-[#66748a] hover:bg-[#f0ece3] hover:text-[#273d58]"}`}
                 >
                   <Icon size={18} />
                   {item.label}
+                  {item.id === "review" && reviewQueue.length > 0 && <span className="ml-auto rounded-full bg-white/75 px-1.5 py-0.5 font-mono text-[10px]">{reviewQueue.length}</span>}
                   {item.id === "library" && library.length > 0 && <span className="ml-auto font-mono text-[10px]">{library.length}</span>}
                 </button>
               );
@@ -730,9 +867,10 @@ export default function Home() {
             </div>
           </header>
 
-          <nav aria-label="Workspace navigation" className="mt-4 grid grid-cols-2 gap-2 rounded-2xl border border-[#ddd6c8] bg-[#fffdf8]/90 p-2 lg:hidden">
+          <nav aria-label="Workspace navigation" className="mt-4 grid grid-cols-3 gap-2 rounded-2xl border border-[#ddd6c8] bg-[#fffdf8]/90 p-2 lg:hidden">
             {[
               { id: "capture", label: "Capture", icon: PenLine },
+              { id: "review", label: "Review", icon: Brain },
               { id: "library", label: "Library", icon: Library },
             ].map(item => {
               const Icon = item.icon;
@@ -740,11 +878,12 @@ export default function Home() {
               return (
                 <button
                   key={item.id}
-                  onClick={() => setActiveView(item.id as "capture" | "library")}
+                  onClick={() => setActiveView(item.id as WorkspaceView)}
                   className={`flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition-colors ${active ? "bg-[#d9ece8] text-[#184d53]" : "text-[#66748a] hover:bg-[#f0ece3] hover:text-[#273d58]"}`}
                 >
                   <Icon size={17} />
                   {item.label}
+                  {item.id === "review" && reviewQueue.length > 0 && <span className="rounded-full bg-white/75 px-1.5 py-0.5 font-mono text-[10px]">{reviewQueue.length}</span>}
                   {item.id === "library" && library.length > 0 && <span className="rounded-full bg-white/75 px-1.5 py-0.5 font-mono text-[10px]">{library.length}</span>}
                 </button>
               );
@@ -820,8 +959,14 @@ export default function Home() {
                       {drafts.map((entry, index) => (
                         <article key={entry.id} className="rounded-2xl border border-[#ded8cd] bg-[#fffefa] p-4 transition-shadow hover:shadow-[0_8px_24px_rgba(48,64,82,0.07)] sm:p-5">
                           <div className="mb-4 flex items-center justify-between">
-                            <span className="font-mono text-[11px] font-semibold text-[#6b82a0]">DRAFT {String(index + 1).padStart(2, "0")}</span>
-                            <button onClick={() => removeDraft(entry.id)} className="rounded-lg p-1.5 text-[#8794a5] transition-colors hover:bg-[#fbebea] hover:text-[#b34b43]" aria-label="Remove draft"><X size={16} /></button>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-mono text-[11px] font-semibold text-[#6b82a0]">DRAFT {String(index + 1).padStart(2, "0")}</span>
+                              <span className={`rounded-full px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.08em] ${entry.source === "needs-review" ? "bg-[#fff0ee] text-[#a64e45]" : "bg-[#eef4f2] text-[#32706b]"}`}>{sourceLabel(entry.source ?? "manual")}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              {entry.source !== "needs-review" && <button onClick={() => markDraftForReview(entry.id)} className="rounded-lg px-2 py-1.5 text-[10px] font-bold text-[#7d6134] transition-colors hover:bg-[#fff5df]" aria-label={`Mark ${entry.word || "draft"} for review`}>Check</button>}
+                              <button onClick={() => removeDraft(entry.id)} className="rounded-lg p-1.5 text-[#8794a5] transition-colors hover:bg-[#fbebea] hover:text-[#b34b43]" aria-label="Remove draft"><X size={16} /></button>
+                            </div>
                           </div>
                           <div className="grid gap-3 sm:grid-cols-[0.85fr_1fr_1.25fr]">
                             <Input value={entry.word} onChange={event => updateDraft(entry.id, "word", event.target.value)} placeholder="Word or phrase" className="h-10 border-[#dad3c7] bg-[#fbfaf6] text-sm shadow-none" />
@@ -866,17 +1011,85 @@ export default function Home() {
                 )}
               </aside>
             </div>
+          ) : activeView === "review" ? (
+            <section className="mx-auto max-w-3xl pt-7">
+              <div className="rounded-3xl border border-[#ddd6c8] bg-[#fffdf8] p-5 shadow-[0_18px_50px_rgba(44,57,78,0.05)] sm:p-8">
+                <div className="flex flex-wrap items-end justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 text-[#7357a4]"><Brain size={16} /><span className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em]">Daily recall</span></div>
+                    <h2 className="mt-2 font-display text-3xl font-semibold tracking-[-0.03em]">Remember before you reveal.</h2>
+                    <p className="mt-2 max-w-xl text-sm leading-6 text-[#64758a]">A small review queue helps words come back when you need them, not just when you added them.</p>
+                  </div>
+                  <span className="rounded-full bg-[#f2edf8] px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[#7357a4]">{reviewQueue.length} due now</span>
+                </div>
+
+                {activeReviewEntry ? (
+                  <article className="mt-8 rounded-3xl border border-[#ddd6c8] bg-[#faf8f2] p-6 text-center sm:p-10">
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#70819a]">Recall the meaning</p>
+                    <h3 className="mt-5 font-display text-4xl font-semibold tracking-[-0.04em] text-[#203d60] sm:text-5xl">{activeReviewEntry.word}</h3>
+                    {!reviewRevealed ? (
+                      <Button onClick={() => setReviewRevealed(true)} className="mt-8 h-11 rounded-xl bg-[#183e66] px-5 text-xs font-bold hover:bg-[#123454]"><BookOpen size={15} className="mr-2" />Reveal answer</Button>
+                    ) : (
+                      <div className="mt-8 text-left">
+                        <div className="rounded-2xl border border-[#d7d1c4] bg-white p-5 text-left">
+                          <p className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#22716d]">Simple meaning</p>
+                          <p className="mt-2 text-lg font-semibold text-[#29425d]">{activeReviewEntry.meaning}</p>
+                          <p className="mt-4 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#7357a4]">Example</p>
+                          <p className="mt-2 text-sm leading-6 text-[#5a6e85]">{activeReviewEntry.example}</p>
+                        </div>
+                        <p className="mt-5 text-center text-xs text-[#718198]">How well did you remember it?</p>
+                        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                          {([
+                            ["again", "Again", "bg-[#9d4b45] hover:bg-[#833d39]"],
+                            ["hard", "Hard", "bg-[#b77b2a] hover:bg-[#9b6620]"],
+                            ["good", "Good", "bg-[#22716d] hover:bg-[#195b58]"],
+                            ["easy", "Easy", "bg-[#183e66] hover:bg-[#123454]"],
+                          ] as const).map(([rating, label, className]) => (
+                            <Button key={rating} onClick={() => rateActiveReview(rating)} className={`h-10 rounded-xl text-xs font-bold ${className}`}>{label}</Button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </article>
+                ) : (
+                  <div className="mt-8 rounded-3xl border border-dashed border-[#d6cfc1] bg-[#faf8f2] px-5 py-14 text-center">
+                    <Brain className="mx-auto text-[#9cacbd]" size={28} />
+                    <p className="mt-4 text-sm font-semibold text-[#445c75]">Nothing due right now.</p>
+                    <p className="mt-1 text-xs leading-5 text-[#7b899a]">Capture words, then come back when the desk calls them up again.</p>
+                    <Button variant="outline" onClick={() => setActiveView("capture")} className="mt-6 h-10 rounded-xl border-[#cbd4da] bg-white text-xs font-semibold"><PenLine size={15} className="mr-2" />Capture a word</Button>
+                  </div>
+                )}
+              </div>
+            </section>
           ) : (
             <section className="mx-auto max-w-6xl pt-7">
               <div className="rounded-3xl border border-[#ddd6c8] bg-[#fffdf8] p-5 shadow-[0_18px_50px_rgba(44,57,78,0.05)] sm:p-7">
                 <div className="flex flex-wrap items-end justify-between gap-4">
-                  <div><p className="font-mono text-[11px] font-semibold uppercase tracking-[0.13em] text-[#22716d]">Parsed from Drive</p><h2 className="mt-2 font-display text-3xl font-semibold tracking-[-0.03em]">Vocabulary library</h2><p className="mt-2 text-sm text-[#64758a]">The selected Markdown file remains the source of truth.</p></div>
-                  <Button variant="outline" onClick={pickMarkdownFile} className="h-10 rounded-xl border-[#cbd4da] bg-white text-xs font-semibold"><FolderOpen size={15} className="mr-2" /> Change file</Button>
+                  <div><p className="font-mono text-[11px] font-semibold uppercase tracking-[0.13em] text-[#22716d]">Parsed from Drive</p><h2 className="mt-2 font-display text-3xl font-semibold tracking-[-0.03em]">Vocabulary library</h2><p className="mt-2 text-sm text-[#64758a]">The selected Markdown file remains the source of truth. Review metadata stays on this device.</p></div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" onClick={() => exportBackup("markdown")} className="h-10 rounded-xl border-[#cbd4da] bg-white text-xs font-semibold"><Download size={15} className="mr-2" /> Markdown</Button>
+                    <Button variant="outline" onClick={() => exportBackup("csv")} className="h-10 rounded-xl border-[#cbd4da] bg-white text-xs font-semibold"><Download size={15} className="mr-2" /> CSV</Button>
+                    <Button variant="outline" onClick={pickMarkdownFile} className="h-10 rounded-xl border-[#cbd4da] bg-white text-xs font-semibold"><FolderOpen size={15} className="mr-2" /> Change file</Button>
+                  </div>
                 </div>
                 {library.length ? (
-                  <div className="mt-7 overflow-hidden rounded-2xl border border-[#ded8cd]">
-                    <div className="hidden grid-cols-[0.9fr_1.2fr_1.5fr_30px] gap-4 bg-[#eef3f2] px-4 py-3 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[#55706e] sm:grid"><span>Word or phrase</span><span>Simple meaning</span><span>Example</span><span /></div>
-                    {library.map(entry => <div key={entry.id} className="grid gap-2 border-t border-[#ece7dc] px-4 py-4 sm:grid-cols-[0.9fr_1.2fr_1.5fr_30px] sm:items-center sm:gap-4"><Input value={entry.word} onChange={event => updateLibraryEntry(entry.id, "word", event.target.value)} aria-label="Word or phrase" className="h-9 bg-[#fbfaf6] text-sm font-semibold text-[#263e5b] shadow-none" /><Input value={entry.meaning} onChange={event => updateLibraryEntry(entry.id, "meaning", event.target.value)} aria-label="Simple meaning" className="h-9 bg-[#fbfaf6] text-sm shadow-none" /><Input value={entry.example} onChange={event => updateLibraryEntry(entry.id, "example", event.target.value)} aria-label="Example" className="h-9 bg-[#fbfaf6] text-sm shadow-none" /><button onClick={() => deleteLibraryEntry(entry.id)} className="justify-self-end rounded-lg p-2 text-[#8e9bad] hover:bg-[#fbebea] hover:text-[#b34b43]" aria-label={`Delete ${entry.word}`}><X size={16} /></button></div>)}
+                  <div className="mt-7">
+                    <div className="flex flex-col gap-3 rounded-2xl border border-[#ded8cd] bg-[#faf8f2] p-3 sm:flex-row sm:items-center">
+                      <div className="relative flex-1"><Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#8190a1]" /><Input value={librarySearch} onChange={event => setLibrarySearch(event.target.value)} placeholder="Search words, meanings, examples" className="h-10 border-[#d7d0c2] bg-white pl-9 text-xs shadow-none" /></div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {([
+                          ["all", "All"], ["due", "Due"], ["new", "New"], ["known", "Known"], ["needs-review", "Check"],
+                        ] as const).map(([filter, label]) => <button key={filter} onClick={() => setLibraryFilter(filter)} className={`rounded-lg px-2.5 py-2 text-[10px] font-bold transition-colors ${libraryFilter === filter ? "bg-[#183e66] text-white" : "bg-white text-[#617087] hover:bg-[#edf3f2]"}`}>{label}</button>)}
+                      </div>
+                    </div>
+                    <div className="mt-3 overflow-hidden rounded-2xl border border-[#ded8cd]">
+                      <div className="hidden grid-cols-[0.9fr_1.2fr_1.5fr_30px] gap-4 bg-[#eef3f2] px-4 py-3 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[#55706e] sm:grid"><span>Word or phrase</span><span>Simple meaning</span><span>Example</span><span /></div>
+                      {visibleLibrary.map(entry => {
+                        const metadata = reviewStore[entryReviewKey(entry.word)] ?? createInitialReviewMetadata("imported", 0);
+                        return <div key={entry.id} className="grid gap-2 border-t border-[#ece7dc] px-4 py-4 sm:grid-cols-[0.9fr_1.2fr_1.5fr_30px] sm:items-center sm:gap-4"><div><Input value={entry.word} onChange={event => updateLibraryEntry(entry.id, "word", event.target.value)} aria-label="Word or phrase" className="h-9 bg-[#fbfaf6] text-sm font-semibold text-[#263e5b] shadow-none" /><span className="mt-1.5 inline-block rounded-full bg-[#edf3f2] px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-[#3e706c]">{sourceLabel(metadata.source)} · {metadata.state}</span></div><Input value={entry.meaning} onChange={event => updateLibraryEntry(entry.id, "meaning", event.target.value)} aria-label="Simple meaning" className="h-9 bg-[#fbfaf6] text-sm shadow-none" /><Input value={entry.example} onChange={event => updateLibraryEntry(entry.id, "example", event.target.value)} aria-label="Example" className="h-9 bg-[#fbfaf6] text-sm shadow-none" /><button onClick={() => deleteLibraryEntry(entry.id)} className="justify-self-end rounded-lg p-2 text-[#8e9bad] hover:bg-[#fbebea] hover:text-[#b34b43]" aria-label={`Delete ${entry.word}`}><X size={16} /></button></div>;
+                      })}
+                      {!visibleLibrary.length && <div className="px-5 py-10 text-center text-sm text-[#718198]">No entries match this search or filter.</div>}
+                    </div>
                   </div>
                 ) : (
                   <div className="mt-7 rounded-2xl border border-dashed border-[#d6cfc1] bg-[#faf8f2] px-5 py-14 text-center"><Library className="mx-auto text-[#9cacbd]" size={26} /><p className="mt-3 text-sm font-semibold text-[#445c75]">No vocabulary loaded yet.</p><p className="mt-1 text-xs text-[#7b899a]">{rememberedDestination?.name ? `Tap Resume ${rememberedDestination.name} to reload it from Drive.` : "Connect Drive and choose `vocab.md` from The Shelf."}</p></div>

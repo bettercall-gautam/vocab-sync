@@ -120,5 +120,15 @@
 - [ ] Verify common-word Dictionary lookups on the owner’s device without AI fallback.
 - [x] Add Smart mode as the default path: clean dictionary for an ordinary English word, AI for phrases or dictionary misses, then a prefilled manual draft if AI cannot complete.
 - [x] Guarantee that every submitted word or phrase is retained as a draft even when both dictionary and free AI fail.
-- [ ] Publish the Smart universal capture and markup-cleaning update to GitHub Pages.
+- [x] Publish the Smart universal capture and markup-cleaning update to GitHub Pages and confirm workflow 32451239428 succeeds.
 - [ ] Validate on the owner’s device: `adore` gets a clean dictionary draft, a phrase uses AI, and unavailable AI still preserves an editable draft.
+- [ ] Research and recommend a free multilingual translation and definition path for words and phrases beyond English-dictionary coverage.
+- [x] Audit and prioritize practical UI, speed, reliability, and learning-workflow improvements for Vocab Sync.
+- [x] Add a local-first daily review queue with deterministic spaced-repetition scheduling and self-ratings.
+- [x] Add draft source and quality controls, including safe correction and retry guidance without wasting free AI requests.
+- [x] Add Library search and filters for word, meaning, review state, and source.
+- [x] Add Markdown and CSV backup/export without weakening existing Drive conflict protection.
+- [x] Refine mobile focus, information hierarchy, and the personal language desk interface without a full redesign.
+- [x] Measure and improve initial loading by deferring nonessential Google setup code until a Drive action is requested.
+- [x] Add clear in-app progress and outcome states only; Telegram notifications are explicitly out of scope.
+- [ ] Test, publish, and obtain owner-device validation for the complete improvement release.

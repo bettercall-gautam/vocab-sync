@@ -3,7 +3,7 @@ export type RememberedMarkdownDestination = {
   name?: string;
 };
 
-export type WorkspaceView = "capture" | "library";
+export type WorkspaceView = "capture" | "review" | "library";
 
 export function parseRememberedMarkdownDestination(value: string | null): RememberedMarkdownDestination | null {
   if (!value) return null;
@@ -25,5 +25,5 @@ export function serializeRememberedMarkdownDestination(destination: RememberedMa
 }
 
 export function parseWorkspaceView(value: string | null): WorkspaceView {
-  return value === "library" ? "library" : "capture";
+  return value === "library" || value === "review" ? value : "capture";
 }
