@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
+  clampVocabularyEntryToConciseLimits,
   createFingerprint,
   hasDriveConflict,
   hasSyncableVocabularyChanges,
@@ -435,7 +436,7 @@ export default function Home() {
 
     setGenerating(true);
     try {
-      const requestGeneratedEntries = async (repairInstruction?: string) => {
+      const requestGeneratedEntries = async () => {
         const { value } = await requestWithFreeModelRouter(async selectedModels => {
         const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
@@ -457,7 +458,6 @@ export default function Home() {
                 content: JSON.stringify({
                   words: wordsReady,
                   requiredFormat: { entries: [{ word: "", meaning: "", example: "" }] },
-                  repairInstruction,
                 }),
               },
             ],
@@ -491,9 +491,11 @@ export default function Home() {
             provider: {
               allow_fallbacks: true,
               require_parameters: true,
-              sort: { by: "latency", partition: "none" },
+              sort: { by: "latency", partition: "model" },
             },
-            max_tokens: Math.min(700, Math.max(180, wordsReady.length * 64)),
+            plugins: [{ id: "response-healing" }],
+            reasoning: { effort: "low", exclude: true },
+            max_tokens: Math.min(300, Math.max(96, wordsReady.length * 48 + 48)),
             temperature: 0.2,
           }),
         });
@@ -524,15 +526,14 @@ export default function Home() {
         };
       };
 
-      let { entries: generated, model } = await requestGeneratedEntries();
-      if (generated.some(entry => !isConciseVocabularyEntry(entry))) {
-        ({ entries: generated, model } = await requestGeneratedEntries(
-          "Your previous output was too long. Regenerate every entry within the exact word limits.",
-        ));
-      }
+      const { entries: rawGenerated, model } = await requestGeneratedEntries();
+      const generated = rawGenerated.map(entry => {
+        const conciseEntry = clampVocabularyEntryToConciseLimits(entry);
+        return createEntry(conciseEntry.word, conciseEntry.meaning, conciseEntry.example);
+      });
       if (!generated.length) throw new Error("The free model returned an unusable result. Try again or add entries manually.");
       if (generated.some(entry => !isConciseVocabularyEntry(entry))) {
-        throw new Error("The free model kept the answer too long. Try again in a moment or edit a manual draft.");
+        throw new Error("The free model returned an incomplete entry. Try again in a moment or add a manual draft.");
       }
       const { entries, duplicates } = mergeVocabularyEntries([...library, ...drafts], generated);
       const fresh = entries.slice(library.length + drafts.length);

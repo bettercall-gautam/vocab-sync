@@ -90,4 +90,6 @@
 - [x] Publish the compatible-model batching update and confirm GitHub Pages workflow 32442486439 succeeds.
 - [x] Verify the current GitHub Pages bundle contains compatible three-model batching and guide the owner to the exact cache-busting Vocab Sync URL before retesting generation.
 - [x] Recover automatically from empty free-model responses and optimize the one-word generation fast path without allowing paid-model fallback.
-- [ ] Publish the empty-output recovery and speed tuning update, then verify a fast successful owner-device generation.
+- [x] Publish the empty-output recovery and speed tuning update and confirm GitHub Pages workflow 32443197752 succeeds.
+- [x] Research the live OpenRouter free-model catalog and replace the current slow and fragile routing strategy with the best evidence-based free-only option for concise vocabulary generation.
+- [ ] Publish the selected two-model free-only strategy and confirm two consecutive owner-device vocabulary generations complete reliably.

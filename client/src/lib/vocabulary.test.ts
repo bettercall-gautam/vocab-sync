@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  clampVocabularyEntryToConciseLimits,
   conciseVocabularyLimits,
   createFingerprint,
   groupFreeModelsForOpenRouter,
@@ -68,17 +69,14 @@ describe("vocabulary helpers", () => {
     expect(hasDriveConflict(expected, { version: "12", content: "edited in Obsidian" })).toBe(true);
   });
 
-  it("uses five explicit verified free candidates and excludes the random free-model router", () => {
-    expect(freeModelFallbacks).toHaveLength(5);
+  it("uses two durable verified free candidates and excludes the random free-model router", () => {
+    expect(freeModelFallbacks).toHaveLength(2);
     expect(freeModelFallbacks.every(isFreeOnlyModel)).toBe(true);
     expect(freeModelFallbacks).not.toContain("openrouter/free");
-    expect(freeModelFallbacks.slice(0, 3)).toEqual([
-      "liquid/lfm-2.5-2.6b:free",
+    expect(freeModelFallbacks).toEqual([
       "openai/gpt-oss-20b:free",
-      "google/gemma-4-26b-a4b-it:free",
+      "nvidia/nemotron-3-super-120b-a12b:free",
     ]);
-    expect(freeModelFallbacks).toContain("google/gemma-4-26b-a4b-it:free");
-    expect(freeModelFallbacks).toContain("openai/gpt-oss-20b:free");
     expect(isFreeOnlyModel("paid/provider-model")).toBe(false);
   });
 
@@ -191,6 +189,18 @@ describe("vocabulary helpers", () => {
     })).toBe(false);
     expect(conciseVocabularyLimits.meaningWords).toBe(8);
     expect(conciseVocabularyLimits.exampleWords).toBe(10);
+  });
+
+  it("clamps a slightly overlong provider response locally instead of requiring a second model request", () => {
+    expect(clampVocabularyEntryToConciseLimits({
+      word: "hypothesis",
+      meaning: "A proposed explanation based on limited evidence that can be tested.",
+      example: "The researcher formed a hypothesis that adding fertilizer would increase crop yield.",
+    })).toEqual({
+      word: "hypothesis",
+      meaning: "A proposed explanation based on limited evidence that",
+      example: "The researcher formed a hypothesis that adding fertilizer would increase",
+    });
   });
 
   it("parses valid JSON even when a free model wraps it in a Markdown fence", () => {

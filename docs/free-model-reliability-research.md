@@ -24,6 +24,18 @@ OpenRouter’s provider-routing documentation says requests load-balance across 
 
 The implementation should therefore use explicit currently live free models with structured-output support, request a strict JSON schema, require compatible provider endpoints, apply a short retry only for transient errors, and preserve diagnostic status codes without exposing API keys.
 
+## August 21 reassessment for short vocabulary notes
+
+The live zero-cost structured-output catalog now returns six candidates when sorted by OpenRouter latency: `nvidia/nemotron-nano-9b-v2:free`, `nvidia/nemotron-3-super-120b-a12b:free`, `dots-studio/dots-3-note-preview:free`, `liquid/lfm-2.5-2.6b:free`, `openai/gpt-oss-20b:free`, and `z-ai/glm-5.2:free`. The Nano model is the lowest-latency catalog result but expires on 2026-08-24, so it cannot be the app’s sole durable model. The Dots preview also expires on 2026-09-30. The current recent production failures confirm that advertised structured-output support is not enough by itself for the prior five-model strategy.
+
+For Vocab Sync, the success criteria are short time to first output, simple definitions and examples, reliable valid JSON, no paid fallback, and a stable model identifier. The small one-word task does not benefit from mandatory reasoning. The live catalog marks LFM 2.5 2.6B and GPT OSS 20B as mandatory-reasoning models, while GLM 5.2 defaults to high reasoning effort. They are poor primary choices when user-visible speed is more valuable than broad-agent quality.
+
+OpenRouter documents a free Response Healing plugin for non-streaming structured-output calls. It repairs JSON syntax and markdown-wrapped JSON before the client receives it, while OpenRouter’s benchmark article reports negligible typical added latency. It cannot repair missing semantic fields or truly empty output. This points to a simpler durable primary model, a single fallback only when the primary has an actual transport or empty-output failure, and Response Healing rather than repeated multi-group roulette for syntax defects.
+
+### Selected strategy
+
+The selected production strategy uses `openai/gpt-oss-20b:free` as the primary and `nvidia/nemotron-3-super-120b-a12b:free` as its sole durable fallback. Both are currently zero-cost and advertise structured-output support. The temporary lowest-latency Nano candidate is intentionally excluded because its current catalog expiration is 2026-08-24; the Dots candidate is likewise a preview expiring on 2026-09-30. The request preserves model priority, asks each eligible model for low-effort reasoning only, limits completion tokens for the tiny task, uses free Response Healing, and clamps rare overlong text locally instead of spending another full generation request. This is a deliberate speed and consistency tradeoff: it is not a guarantee against the availability limits inherent to free endpoints.
+
 ## Sources
 
 [1] [OpenRouter live model catalog](https://openrouter.ai/api/v1/models)
@@ -31,3 +43,11 @@ The implementation should therefore use explicit currently live free models with
 [2] [OpenRouter structured outputs guide](https://openrouter.ai/docs/guides/features/structured-outputs)
 
 [3] [OpenRouter provider routing guide](https://openrouter.ai/docs/guides/routing/provider-selection)
+
+[4] [OpenRouter Models API guide](https://openrouter.ai/docs/guides/overview/models)
+
+[5] [OpenRouter Response Healing guide](https://openrouter.ai/docs/guides/features/plugins/response-healing)
+
+[6] [OpenRouter Response Healing announcement](https://openrouter.ai/blog/announcements/response-healing-reduce-json-defects-by-80percent/)
+
+[7] [OpenRouter reasoning-token guide](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens)

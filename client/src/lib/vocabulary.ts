@@ -113,13 +113,11 @@ export function hasDriveConflict(
   return expected.version !== latest.version || expected.fingerprint !== createFingerprint(latest.content);
 }
 
-// Verified against OpenRouter's public catalog on 2026-08-20. Every model is free
-// and advertises structured-output support, unlike the previous generic router chain.
+// Reassessed against OpenRouter's live catalog on 2026-08-21 for short structured
+// vocabulary notes. These durable models are free and support structured outputs.
+// The first model is tuned for lower-latency inference; the second is a free backup.
 export const freeModelFallbacks = [
-  "liquid/lfm-2.5-2.6b:free",
   "openai/gpt-oss-20b:free",
-  "google/gemma-4-26b-a4b-it:free",
-  "z-ai/glm-5.2:free",
   "nvidia/nemotron-3-super-120b-a12b:free",
 ] as const;
 
@@ -164,6 +162,22 @@ export function isConciseVocabularyEntry(entry: GeneratedVocabularyText): boolea
     && countWords(entry.meaning) <= conciseVocabularyLimits.meaningWords
     && countWords(entry.example) <= conciseVocabularyLimits.exampleWords,
   );
+}
+
+function trimToWordLimit(value: string, limit: number): string {
+  return value.trim().split(/\s+/).filter(Boolean).slice(0, limit).join(" ");
+}
+
+/**
+ * Keeps the user-requested short format locally rather than issuing a second,
+ * slower model request when a provider slightly exceeds a word limit.
+ */
+export function clampVocabularyEntryToConciseLimits(entry: GeneratedVocabularyText): GeneratedVocabularyText {
+  return {
+    ...entry,
+    meaning: trimToWordLimit(entry.meaning, conciseVocabularyLimits.meaningWords),
+    example: trimToWordLimit(entry.example, conciseVocabularyLimits.exampleWords),
+  };
 }
 
 export function parseGeneratedVocabularyEntries(content: unknown): GeneratedVocabularyText[] {
