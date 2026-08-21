@@ -143,5 +143,6 @@
 - [x] Add conflict-safe cross-device review metadata sync without changing the existing `vocab.md` format.
 - [ ] Obtain owner-device validation for the published A through D release; GitHub Pages workflow 32475113290 succeeded, while experimental encounter, sentence, confusion-pair, and reading-trail ideas remain out of scope.
 - [x] Replace `Again`, `Hard`, `Good`, and `Easy` with plain-language review choices that preserve the current scheduling behavior.
-- [ ] Publish and verify the plain-language review-rating update on the owner’s device.
+- [ ] Verify the plain-language review-rating update on the owner’s device; GitHub Pages workflow 32476089219 succeeded.
 - [x] Conduct a final focused UX pass and implement only clear, low-risk usability or mobile-flow refinements alongside the plain-language review ratings.
+- [x] Add an installable Vocab Sync home-screen experience with a branded app icon and document the boundary between a PWA shortcut and a true native widget.

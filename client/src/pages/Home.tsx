@@ -90,6 +90,11 @@ type SelectedFile = {
   fingerprint: string;
 };
 
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+};
+
 declare global {
   interface Window {
     gapi?: any;
@@ -178,6 +183,7 @@ export default function Home() {
   const reviewStoreRef = useRef(reviewStore);
   const reviewSyncVersionRef = useRef(0);
   const [reviewSyncStatus, setReviewSyncStatus] = useState<"local" | "syncing" | "synced">("local");
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [reviewRevealed, setReviewRevealed] = useState(false);
   const [librarySearch, setLibrarySearch] = useState("");
   const [libraryFilter, setLibraryFilter] = useState<"all" | "due" | "new" | "known" | "needs-review">("all");
@@ -234,6 +240,15 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    const captureInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event as BeforeInstallPromptEvent);
+    };
+    window.addEventListener("beforeinstallprompt", captureInstallPrompt);
+    return () => window.removeEventListener("beforeinstallprompt", captureInstallPrompt);
+  }, []);
+
+  useEffect(() => {
     const returnedSession = parseDriveSessionFromHash(window.location.hash);
     if (!returnedSession) return;
 
@@ -284,6 +299,17 @@ export default function Home() {
   function updateRouterKey(value: string) {
     setOpenRouterKey(value);
     if (rememberKey) localStorage.setItem(localRouterKey, value);
+  }
+
+  async function installHomeScreenApp() {
+    if (!installPrompt) {
+      toast.message("On iPhone: use Share, then Add to Home Screen. On Android: use your browser menu, then Install app.");
+      return;
+    }
+    await installPrompt.prompt();
+    const choice = await installPrompt.userChoice;
+    setInstallPrompt(null);
+    if (choice.outcome === "accepted") toast.success("Vocab Sync was added to your home screen.");
   }
 
   function toggleRememberKey(nextValue: boolean) {
@@ -1094,7 +1120,7 @@ export default function Home() {
 
           <section className="mx-auto mt-6 max-w-6xl rounded-2xl border border-[#d8d1c4] bg-[#f3efe5]/80 px-4 py-3 sm:px-5">
             <button onClick={() => setSetupExpanded(current => !current)} className="flex w-full items-center justify-between text-left"><span className="flex items-center gap-2 text-xs font-bold text-[#516780]"><KeyRound size={15} /> Free browser setup</span><ChevronRight size={16} className={`text-[#8191a4] transition-transform ${setupExpanded ? "rotate-90" : ""}`} /></button>
-            {setupExpanded && <div className="mt-3 border-t border-[#dbd3c5] pt-3 text-xs leading-5 text-[#62748b]"><p>Drive uses a protected server connection. This browser stores only a revocable device session, while Google refresh tokens stay encrypted outside GitHub and browser storage. Add your OpenRouter key below for free-model generation.</p><div className="mt-3 flex flex-col gap-2 sm:flex-row"><Input type="password" value={openRouterKey} onChange={event => updateRouterKey(event.target.value)} placeholder="OpenRouter API key" className="h-10 flex-1 bg-white text-xs shadow-none" /><label className="flex h-10 cursor-pointer items-center gap-2 rounded-xl border border-[#cbd4da] bg-white px-3 text-xs font-semibold text-[#3f5873] hover:bg-[#f7fafb]"><input type="checkbox" checked={rememberKey} onChange={event => toggleRememberKey(event.target.checked)} className="h-4 w-4 rounded border-[#8ea0b4] accent-[#22716d]" />Remember key on this device</label></div><p className="mt-2 text-[11px] leading-4 text-[#7a899b]">Use this only on your own locked device. Drive restores silently after a browser restart unless you choose to forget this device.</p></div>}
+            {setupExpanded && <div className="mt-3 border-t border-[#dbd3c5] pt-3 text-xs leading-5 text-[#62748b]"><p>Drive uses a protected server connection. This browser stores only a revocable device session, while Google refresh tokens stay encrypted outside GitHub and browser storage. Add your OpenRouter key below for free-model generation.</p><Button variant="outline" onClick={() => void installHomeScreenApp()} className="mt-3 h-10 rounded-xl border-[#b8cec8] bg-[#f5fbf9] text-xs font-bold text-[#22615d] hover:bg-white"><Download size={15} className="mr-2" />{installPrompt ? "Install Vocab Sync" : "Add Vocab Sync to home screen"}</Button><p className="mt-2 text-[11px] leading-4 text-[#7a899b]">This creates an app-style home-screen shortcut with the Vocab Sync icon. A true interactive phone widget requires a native mobile app.</p><div className="mt-3 flex flex-col gap-2 sm:flex-row"><Input type="password" value={openRouterKey} onChange={event => updateRouterKey(event.target.value)} placeholder="OpenRouter API key" className="h-10 flex-1 bg-white text-xs shadow-none" /><label className="flex h-10 cursor-pointer items-center gap-2 rounded-xl border border-[#cbd4da] bg-white px-3 text-xs font-semibold text-[#3f5873] hover:bg-[#f7fafb]"><input type="checkbox" checked={rememberKey} onChange={event => toggleRememberKey(event.target.checked)} className="h-4 w-4 rounded border-[#8ea0b4] accent-[#22716d]" />Remember key on this device</label></div><p className="mt-2 text-[11px] leading-4 text-[#7a899b]">Use this only on your own locked device. Drive restores silently after a browser restart unless you choose to forget this device.</p></div>}
           </section>
         </main>
       </div>
