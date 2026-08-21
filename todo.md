@@ -133,5 +133,12 @@
 - [x] Add clear in-app progress and outcome states only; Telegram notifications are explicitly out of scope.
 - [ ] Complete owner-device validation for the published improvement release; GitHub Pages workflow 32464955893 succeeded.
 - [x] Strip legacy Markdown bold markers from vocabulary words in the app display and future Drive sync output without altering meanings or examples.
-- [ ] Publish the plain-word formatting correction to GitHub Pages.
-- [ ] Verify the owner’s Drive `vocab.md` becomes consistently plain-text word formatting after the safe cleanup sync.
+- [x] Publish the plain-word formatting correction to GitHub Pages and confirm workflow 32466042331 succeeds.
+- [x] Verify the owner’s Drive `vocab.md` becomes consistently plain-text word formatting after the safe cleanup sync.
+- [x] Create a verifiable Drive backup, remove only outer bold markers from word cells in The Shelf `vocab.md`, and confirm content preservation.
+- [x] Conduct a fresh comprehensive audit of Vocab Sync UI, speed, reliability, accessibility, user flow, and next-level product opportunities before proposing changes.
+- [x] Make Smart capture the clear primary flow and improve small-control target sizes, focus visibility, selected-state semantics, and `Needs your check` wording.
+- [x] Add a gentle five-word review ramp and bidirectional word-to-meaning or meaning-to-word recall.
+- [x] Split the workspace into lazy-loaded Capture, Review, and Library code paths, then measure the production bundle before and after.
+- [x] Add conflict-safe cross-device review metadata sync without changing the existing `vocab.md` format.
+- [ ] Test, publish, and obtain owner-device validation for the approved A through D release; experimental encounter, sentence, confusion-pair, and reading-trail ideas remain out of scope.

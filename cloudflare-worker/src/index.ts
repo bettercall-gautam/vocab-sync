@@ -6,7 +6,9 @@ import {
   deleteConnectionAndSessions,
   getActiveBrowserSession,
   getDriveConnection,
+  getReviewState,
   revokeBrowserSession,
+  saveReviewState,
   saveDriveConnection,
 } from "./database";
 import { buildGoogleAuthorizationUrl, GOOGLE_DRIVE_SCOPE } from "./oauth";
@@ -65,7 +67,7 @@ const exactCorsHeaders = (request: Request, config: RuntimeConfig): Headers | nu
 
   return new Headers({
     "Access-Control-Allow-Origin": config.frontendOrigin,
-    "Access-Control-Allow-Methods": "POST, DELETE, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": `Content-Type, ${BROWSER_SESSION_HEADER}`,
     "Access-Control-Max-Age": "600",
     Vary: "Origin",
@@ -264,6 +266,40 @@ const disconnectEverywhere = async (request: Request, env: Env, corsHeaders: Hea
   return new Response(null, { status: 204, headers: corsHeaders });
 };
 
+const parseReviewStatePayload = (value: unknown): Record<string, unknown> | null => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const entries = Object.entries(value);
+  if (entries.length > 10_000) return null;
+  for (const [key, item] of entries) {
+    if (!key || key.length > 160 || !item || typeof item !== "object" || Array.isArray(item)) return null;
+  }
+  return value as Record<string, unknown>;
+};
+
+const getReviewStateResponse = async (request: Request, env: Env, corsHeaders: Headers): Promise<Response> => {
+  const sessionHash = await requireSession(request, env, corsHeaders);
+  if (sessionHash instanceof Response) return sessionHash;
+  const document = await getReviewState(env.DB);
+  const reviewStore = document ? JSON.parse(document.payload) : {};
+  return jsonResponse({ version: document?.version ?? 0, reviewStore }, { status: 200 }, corsHeaders);
+};
+
+const putReviewStateResponse = async (request: Request, env: Env, corsHeaders: Headers): Promise<Response> => {
+  const sessionHash = await requireSession(request, env, corsHeaders);
+  if (sessionHash instanceof Response) return sessionHash;
+
+  const body = await request.json().catch(() => null) as { expectedVersion?: unknown; reviewStore?: unknown } | null;
+  if (!body || typeof body.expectedVersion !== "number" || !Number.isInteger(body.expectedVersion) || body.expectedVersion < 0) {
+    return errorResponse(400, "invalid_review_state", corsHeaders);
+  }
+  const reviewStore = parseReviewStatePayload(body.reviewStore);
+  if (!reviewStore) return errorResponse(400, "invalid_review_state", corsHeaders);
+
+  const saved = await saveReviewState(env.DB, body.expectedVersion, JSON.stringify(reviewStore));
+  if (!saved) return errorResponse(409, "review_state_conflict", corsHeaders);
+  return jsonResponse({ version: saved.version, reviewStore }, { status: 200 }, corsHeaders);
+};
+
 export default {
   async fetch(request, env): Promise<Response> {
     const url = new URL(request.url);
@@ -294,6 +330,14 @@ export default {
 
     if (request.method === "POST" && url.pathname === "/session/access-token") {
       return createAccessTokenResponse(request, env, corsHeaders);
+    }
+
+    if (request.method === "GET" && url.pathname === "/review-state") {
+      return getReviewStateResponse(request, env, corsHeaders);
+    }
+
+    if (request.method === "PUT" && url.pathname === "/review-state") {
+      return putReviewStateResponse(request, env, corsHeaders);
     }
 
     if (request.method === "DELETE" && url.pathname === "/session") {

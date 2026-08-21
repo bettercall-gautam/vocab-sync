@@ -23,7 +23,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   clampVocabularyEntryToConciseLimits,
   createFingerprint,
@@ -48,12 +48,14 @@ import {
   entryReviewKey,
   isReviewDue,
   parseReviewStore,
+  reviewPromptDirection,
   scheduleReview,
   sourceLabel,
   type EntrySource,
   type ReviewRating,
   type ReviewStore,
 } from "@/lib/review";
+import { mergeReviewStores, parseReviewSyncDocument } from "@/lib/review-sync";
 import { getDriveAppId, hasPickerBootstrapPrerequisites } from "@/lib/google-picker";
 import {
   parseRememberedMarkdownDestination,
@@ -69,6 +71,9 @@ import {
   isDriveReauthorizationError,
   parseDriveSessionFromHash,
 } from "@/lib/drive-session";
+
+const ReviewWorkspace = lazy(() => import("@/components/ReviewWorkspace"));
+const LibraryWorkspace = lazy(() => import("@/components/LibraryWorkspace"));
 
 type DriveConnection = {
   token: string;
@@ -170,6 +175,9 @@ export default function Home() {
   const [dictionaryLookingUp, setDictionaryLookingUp] = useState(false);
   const [captureMode, setCaptureMode] = useState<CaptureMode>("smart");
   const [reviewStore, setReviewStore] = useState<ReviewStore>(() => parseReviewStore(localStorage.getItem(localReviewStoreKey)));
+  const reviewStoreRef = useRef(reviewStore);
+  const reviewSyncVersionRef = useRef(0);
+  const [reviewSyncStatus, setReviewSyncStatus] = useState<"local" | "syncing" | "synced">("local");
   const [reviewRevealed, setReviewRevealed] = useState(false);
   const [librarySearch, setLibrarySearch] = useState("");
   const [libraryFilter, setLibraryFilter] = useState<"all" | "due" | "new" | "known" | "needs-review">("all");
@@ -195,6 +203,7 @@ export default function Home() {
   }, [activeView]);
 
   useEffect(() => {
+    reviewStoreRef.current = reviewStore;
     localStorage.setItem(localReviewStoreKey, JSON.stringify(reviewStore));
   }, [reviewStore]);
 
@@ -241,6 +250,10 @@ export default function Home() {
     library.filter(entry => isReviewDue(reviewStore[entryReviewKey(entry.word)])).slice(0, 5)
   ), [library, reviewStore]);
   const activeReviewEntry = reviewQueue[0] ?? null;
+  const activeReviewMetadata = activeReviewEntry
+    ? reviewStore[entryReviewKey(activeReviewEntry.word)] ?? createInitialReviewMetadata("imported")
+    : null;
+  const activeReviewDirection = reviewPromptDirection(activeReviewMetadata ?? undefined);
   const visibleLibrary = useMemo(() => {
     const query = librarySearch.trim().toLocaleLowerCase();
     return library.filter(entry => {
@@ -334,11 +347,71 @@ export default function Home() {
     };
   }
 
+  async function readRemoteReviewState(session: string) {
+    if (!workerOrigin) throw new Error("review_sync_unavailable");
+    const response = await fetch(`${workerOrigin}/review-state`, {
+      headers: { "X-Vocab-Sync-Session": session },
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(typeof body?.error === "string" ? body.error : "review_sync_unavailable");
+    const document = parseReviewSyncDocument(body);
+    if (!document) throw new Error("review_sync_unavailable");
+    return { ...document, reviewStore: parseReviewStore(JSON.stringify(document.reviewStore)) };
+  }
+
+  async function pullReviewState(session: string): Promise<ReviewStore> {
+    setReviewSyncStatus("syncing");
+    const document = await readRemoteReviewState(session);
+    const merged = mergeReviewStores(reviewStoreRef.current, document.reviewStore);
+    reviewSyncVersionRef.current = document.version;
+    reviewStoreRef.current = merged;
+    setReviewStore(merged);
+    setReviewSyncStatus("synced");
+    return merged;
+  }
+
+  async function pushReviewState(nextStore: ReviewStore, retried = false, sessionOverride?: string): Promise<void> {
+    const activeSession = sessionOverride ?? deviceSession;
+    if (!workerOrigin || !activeSession || !isOnline) return;
+    setReviewSyncStatus("syncing");
+    const response = await fetch(`${workerOrigin}/review-state`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Vocab-Sync-Session": activeSession,
+      },
+      body: JSON.stringify({ expectedVersion: reviewSyncVersionRef.current, reviewStore: nextStore }),
+    });
+    const body = await response.json().catch(() => null);
+    if (response.status === 409 && !retried) {
+      const merged = await pullReviewState(activeSession);
+      await pushReviewState(mergeReviewStores(nextStore, merged), true, activeSession);
+      return;
+    }
+    if (!response.ok) {
+      setReviewSyncStatus("local");
+      return;
+    }
+    const document = parseReviewSyncDocument(body);
+    if (!document) {
+      setReviewSyncStatus("local");
+      return;
+    }
+    reviewSyncVersionRef.current = document.version;
+    setReviewSyncStatus("synced");
+  }
+
   async function restorePersistentDriveSession(session: string, automatic = false) {
     setRestoringDriveSession(true);
     try {
       const nextConnection = await requestPersistentAccessToken(session);
       setConnection(nextConnection);
+      try {
+        const mergedReviewStore = await pullReviewState(session);
+        await pushReviewState(mergedReviewStore, false, session);
+      } catch {
+        setReviewSyncStatus("local");
+      }
       await restoreRememberedMarkdownDestination(nextConnection.token);
       if (!automatic || !rememberedDestination) toast.success("Drive restored securely on this device.");
     } catch (error) {
@@ -531,8 +604,11 @@ export default function Home() {
   function rateActiveReview(rating: ReviewRating) {
     if (!activeReviewEntry) return;
     const key = entryReviewKey(activeReviewEntry.word);
-    const existing = reviewStore[key] ?? createInitialReviewMetadata("imported");
-    setReviewStore(current => ({ ...current, [key]: scheduleReview(existing, rating) }));
+    const existing = reviewStoreRef.current[key] ?? createInitialReviewMetadata("imported");
+    const nextStore = { ...reviewStoreRef.current, [key]: scheduleReview(existing, rating) };
+    reviewStoreRef.current = nextStore;
+    setReviewStore(nextStore);
+    void pushReviewState(nextStore);
     setReviewRevealed(false);
     toast.success(rating === "again" ? "No stress. This word returns in 10 minutes." : "Review scheduled. Your future self says thanks.");
   }
@@ -908,27 +984,22 @@ export default function Home() {
                     placeholder={"serenity\nepiphany, grit\nword or phrase"}
                     className="mt-6 min-h-[176px] resize-y rounded-2xl border-[#d9d4c8] bg-[#faf8f1] p-4 font-mono text-sm leading-6 shadow-none focus-visible:ring-[#3b768b]"
                   />
-                  <div className="mt-5 grid gap-2 sm:grid-cols-3">
-                    {([
-                      { id: "smart" as const, label: "Smart", detail: "Dictionary, then AI, never loses input", icon: BookOpen },
-                      { id: "manual" as const, label: "Manual", detail: "Edit every field yourself", icon: Plus },
-                      { id: "ai" as const, label: "AI", detail: "Free AI for words or phrases", icon: Sparkles },
-                    ]).map(mode => {
-                      const Icon = mode.icon;
-                      const active = captureMode === mode.id;
-                      return (
-                        <button
-                          key={mode.id}
-                          type="button"
-                          aria-pressed={active}
-                          onClick={() => setCaptureMode(mode.id)}
-                          className={`rounded-2xl border p-3 text-left transition-colors ${active ? "border-[#22716d] bg-[#e8f5f1] text-[#174f51] shadow-sm" : "border-[#ddd6c8] bg-[#fffdf8] text-[#52657c] hover:border-[#9bc9c0] hover:bg-[#f7fbf9]"}`}
-                        >
-                          <span className="flex items-center gap-2 text-sm font-bold"><Icon size={16} /> {mode.label}</span>
-                          <span className="mt-1 block text-[11px] leading-4 opacity-80">{mode.detail}</span>
-                        </button>
-                      );
-                    })}
+                  <div className="mt-5">
+                    <button type="button" aria-pressed={captureMode === "smart"} onClick={() => setCaptureMode("smart")} className={`flex min-h-20 w-full items-center justify-between gap-4 rounded-2xl border p-4 text-left transition-colors ${captureMode === "smart" ? "border-[#22716d] bg-[#e8f5f1] text-[#174f51] shadow-sm" : "border-[#bddbd4] bg-[#f7fbf9] text-[#315f63] hover:border-[#7fb9ad]"}`}>
+                      <span><span className="flex items-center gap-2 text-sm font-bold"><BookOpen size={17} /> Smart capture <span className="rounded-full bg-white/75 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.08em]">recommended</span></span><span className="mt-1.5 block text-xs leading-5 opacity-85">Dictionary first, then free AI. Your input is never lost.</span></span>
+                      <ChevronRight size={18} aria-hidden="true" />
+                    </button>
+                    <div className="mt-2 flex items-center gap-2"><span className="h-px flex-1 bg-[#e2ddd2]" /><span className="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-[#8591a1]">Other ways</span><span className="h-px flex-1 bg-[#e2ddd2]" /></div>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      {([
+                        { id: "manual" as const, label: "Manual", detail: "Write every field yourself", icon: Plus },
+                        { id: "ai" as const, label: "Direct AI", detail: "Skip dictionary lookup", icon: Sparkles },
+                      ]).map(mode => {
+                        const Icon = mode.icon;
+                        const active = captureMode === mode.id;
+                        return <button key={mode.id} type="button" aria-pressed={active} onClick={() => setCaptureMode(mode.id)} className={`min-h-16 rounded-2xl border p-3 text-left transition-colors ${active ? "border-[#183e66] bg-[#eef4f7] text-[#183e66] shadow-sm" : "border-[#ddd6c8] bg-[#fffdf8] text-[#52657c] hover:border-[#aebfca] hover:bg-[#f8fbfc]"}`}><span className="flex items-center gap-2 text-sm font-bold"><Icon size={16} /> {mode.label}</span><span className="mt-1 block text-[10px] leading-4 opacity-80">{mode.detail}</span></button>;
+                      })}
+                    </div>
                   </div>
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                     <p className="text-xs text-[#77869a]">{captureMode === "manual" ? "Creates editable blank fields, prefilled with your words." : captureMode === "smart" ? "One simple word tries a clean dictionary first. Phrases and dictionary misses go to AI, then a safe manual draft if needed." : "Uses only the configured free OpenRouter models, then saves an editable draft if free AI is unavailable."}</p>
@@ -964,8 +1035,8 @@ export default function Home() {
                               <span className={`rounded-full px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.08em] ${entry.source === "needs-review" ? "bg-[#fff0ee] text-[#a64e45]" : "bg-[#eef4f2] text-[#32706b]"}`}>{sourceLabel(entry.source ?? "manual")}</span>
                             </div>
                             <div className="flex items-center gap-1">
-                              {entry.source !== "needs-review" && <button onClick={() => markDraftForReview(entry.id)} className="rounded-lg px-2 py-1.5 text-[10px] font-bold text-[#7d6134] transition-colors hover:bg-[#fff5df]" aria-label={`Mark ${entry.word || "draft"} for review`}>Check</button>}
-                              <button onClick={() => removeDraft(entry.id)} className="rounded-lg p-1.5 text-[#8794a5] transition-colors hover:bg-[#fbebea] hover:text-[#b34b43]" aria-label="Remove draft"><X size={16} /></button>
+                              {entry.source !== "needs-review" && <button type="button" onClick={() => markDraftForReview(entry.id)} className="min-h-10 rounded-lg px-3 py-1.5 text-[11px] font-bold text-[#7d6134] transition-colors hover:bg-[#fff5df]" aria-label={`Mark ${entry.word || "draft"} as needing your check`}>Needs your check</button>}
+                              <button type="button" onClick={() => removeDraft(entry.id)} className="flex min-h-10 min-w-10 items-center justify-center rounded-lg p-2 text-[#8794a5] transition-colors hover:bg-[#fbebea] hover:text-[#b34b43]" aria-label="Remove draft"><X size={16} /></button>
                             </div>
                           </div>
                           <div className="grid gap-3 sm:grid-cols-[0.85fr_1fr_1.25fr]">
@@ -1012,90 +1083,13 @@ export default function Home() {
               </aside>
             </div>
           ) : activeView === "review" ? (
-            <section className="mx-auto max-w-3xl pt-7">
-              <div className="rounded-3xl border border-[#ddd6c8] bg-[#fffdf8] p-5 shadow-[0_18px_50px_rgba(44,57,78,0.05)] sm:p-8">
-                <div className="flex flex-wrap items-end justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2 text-[#7357a4]"><Brain size={16} /><span className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em]">Daily recall</span></div>
-                    <h2 className="mt-2 font-display text-3xl font-semibold tracking-[-0.03em]">Remember before you reveal.</h2>
-                    <p className="mt-2 max-w-xl text-sm leading-6 text-[#64758a]">A small review queue helps words come back when you need them, not just when you added them.</p>
-                  </div>
-                  <span className="rounded-full bg-[#f2edf8] px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[#7357a4]">{reviewQueue.length} due now</span>
-                </div>
-
-                {activeReviewEntry ? (
-                  <article className="mt-8 rounded-3xl border border-[#ddd6c8] bg-[#faf8f2] p-6 text-center sm:p-10">
-                    <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#70819a]">Recall the meaning</p>
-                    <h3 className="mt-5 font-display text-4xl font-semibold tracking-[-0.04em] text-[#203d60] sm:text-5xl">{activeReviewEntry.word}</h3>
-                    {!reviewRevealed ? (
-                      <Button onClick={() => setReviewRevealed(true)} className="mt-8 h-11 rounded-xl bg-[#183e66] px-5 text-xs font-bold hover:bg-[#123454]"><BookOpen size={15} className="mr-2" />Reveal answer</Button>
-                    ) : (
-                      <div className="mt-8 text-left">
-                        <div className="rounded-2xl border border-[#d7d1c4] bg-white p-5 text-left">
-                          <p className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#22716d]">Simple meaning</p>
-                          <p className="mt-2 text-lg font-semibold text-[#29425d]">{activeReviewEntry.meaning}</p>
-                          <p className="mt-4 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#7357a4]">Example</p>
-                          <p className="mt-2 text-sm leading-6 text-[#5a6e85]">{activeReviewEntry.example}</p>
-                        </div>
-                        <p className="mt-5 text-center text-xs text-[#718198]">How well did you remember it?</p>
-                        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                          {([
-                            ["again", "Again", "bg-[#9d4b45] hover:bg-[#833d39]"],
-                            ["hard", "Hard", "bg-[#b77b2a] hover:bg-[#9b6620]"],
-                            ["good", "Good", "bg-[#22716d] hover:bg-[#195b58]"],
-                            ["easy", "Easy", "bg-[#183e66] hover:bg-[#123454]"],
-                          ] as const).map(([rating, label, className]) => (
-                            <Button key={rating} onClick={() => rateActiveReview(rating)} className={`h-10 rounded-xl text-xs font-bold ${className}`}>{label}</Button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </article>
-                ) : (
-                  <div className="mt-8 rounded-3xl border border-dashed border-[#d6cfc1] bg-[#faf8f2] px-5 py-14 text-center">
-                    <Brain className="mx-auto text-[#9cacbd]" size={28} />
-                    <p className="mt-4 text-sm font-semibold text-[#445c75]">Nothing due right now.</p>
-                    <p className="mt-1 text-xs leading-5 text-[#7b899a]">Capture words, then come back when the desk calls them up again.</p>
-                    <Button variant="outline" onClick={() => setActiveView("capture")} className="mt-6 h-10 rounded-xl border-[#cbd4da] bg-white text-xs font-semibold"><PenLine size={15} className="mr-2" />Capture a word</Button>
-                  </div>
-                )}
-              </div>
-            </section>
+            <Suspense fallback={<div className="mx-auto max-w-3xl pt-7 text-center text-sm text-[#64758a]">Opening your review desk…</div>}>
+              <ReviewWorkspace queueLength={reviewQueue.length} syncStatus={reviewSyncStatus} entry={activeReviewEntry} direction={activeReviewDirection} revealed={reviewRevealed} onReveal={() => setReviewRevealed(true)} onRate={rateActiveReview} onCapture={() => setActiveView("capture")} />
+            </Suspense>
           ) : (
-            <section className="mx-auto max-w-6xl pt-7">
-              <div className="rounded-3xl border border-[#ddd6c8] bg-[#fffdf8] p-5 shadow-[0_18px_50px_rgba(44,57,78,0.05)] sm:p-7">
-                <div className="flex flex-wrap items-end justify-between gap-4">
-                  <div><p className="font-mono text-[11px] font-semibold uppercase tracking-[0.13em] text-[#22716d]">Parsed from Drive</p><h2 className="mt-2 font-display text-3xl font-semibold tracking-[-0.03em]">Vocabulary library</h2><p className="mt-2 text-sm text-[#64758a]">The selected Markdown file remains the source of truth. Review metadata stays on this device.</p></div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" onClick={() => exportBackup("markdown")} className="h-10 rounded-xl border-[#cbd4da] bg-white text-xs font-semibold"><Download size={15} className="mr-2" /> Markdown</Button>
-                    <Button variant="outline" onClick={() => exportBackup("csv")} className="h-10 rounded-xl border-[#cbd4da] bg-white text-xs font-semibold"><Download size={15} className="mr-2" /> CSV</Button>
-                    <Button variant="outline" onClick={pickMarkdownFile} className="h-10 rounded-xl border-[#cbd4da] bg-white text-xs font-semibold"><FolderOpen size={15} className="mr-2" /> Change file</Button>
-                  </div>
-                </div>
-                {library.length ? (
-                  <div className="mt-7">
-                    <div className="flex flex-col gap-3 rounded-2xl border border-[#ded8cd] bg-[#faf8f2] p-3 sm:flex-row sm:items-center">
-                      <div className="relative flex-1"><Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#8190a1]" /><Input value={librarySearch} onChange={event => setLibrarySearch(event.target.value)} placeholder="Search words, meanings, examples" className="h-10 border-[#d7d0c2] bg-white pl-9 text-xs shadow-none" /></div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {([
-                          ["all", "All"], ["due", "Due"], ["new", "New"], ["known", "Known"], ["needs-review", "Check"],
-                        ] as const).map(([filter, label]) => <button key={filter} onClick={() => setLibraryFilter(filter)} className={`rounded-lg px-2.5 py-2 text-[10px] font-bold transition-colors ${libraryFilter === filter ? "bg-[#183e66] text-white" : "bg-white text-[#617087] hover:bg-[#edf3f2]"}`}>{label}</button>)}
-                      </div>
-                    </div>
-                    <div className="mt-3 overflow-hidden rounded-2xl border border-[#ded8cd]">
-                      <div className="hidden grid-cols-[0.9fr_1.2fr_1.5fr_30px] gap-4 bg-[#eef3f2] px-4 py-3 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[#55706e] sm:grid"><span>Word or phrase</span><span>Simple meaning</span><span>Example</span><span /></div>
-                      {visibleLibrary.map(entry => {
-                        const metadata = reviewStore[entryReviewKey(entry.word)] ?? createInitialReviewMetadata("imported", 0);
-                        return <div key={entry.id} className="grid gap-2 border-t border-[#ece7dc] px-4 py-4 sm:grid-cols-[0.9fr_1.2fr_1.5fr_30px] sm:items-center sm:gap-4"><div><Input value={entry.word} onChange={event => updateLibraryEntry(entry.id, "word", event.target.value)} aria-label="Word or phrase" className="h-9 bg-[#fbfaf6] text-sm font-semibold text-[#263e5b] shadow-none" /><span className="mt-1.5 inline-block rounded-full bg-[#edf3f2] px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-[#3e706c]">{sourceLabel(metadata.source)} · {metadata.state}</span></div><Input value={entry.meaning} onChange={event => updateLibraryEntry(entry.id, "meaning", event.target.value)} aria-label="Simple meaning" className="h-9 bg-[#fbfaf6] text-sm shadow-none" /><Input value={entry.example} onChange={event => updateLibraryEntry(entry.id, "example", event.target.value)} aria-label="Example" className="h-9 bg-[#fbfaf6] text-sm shadow-none" /><button onClick={() => deleteLibraryEntry(entry.id)} className="justify-self-end rounded-lg p-2 text-[#8e9bad] hover:bg-[#fbebea] hover:text-[#b34b43]" aria-label={`Delete ${entry.word}`}><X size={16} /></button></div>;
-                      })}
-                      {!visibleLibrary.length && <div className="px-5 py-10 text-center text-sm text-[#718198]">No entries match this search or filter.</div>}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mt-7 rounded-2xl border border-dashed border-[#d6cfc1] bg-[#faf8f2] px-5 py-14 text-center"><Library className="mx-auto text-[#9cacbd]" size={26} /><p className="mt-3 text-sm font-semibold text-[#445c75]">No vocabulary loaded yet.</p><p className="mt-1 text-xs text-[#7b899a]">{rememberedDestination?.name ? `Tap Resume ${rememberedDestination.name} to reload it from Drive.` : "Connect Drive and choose `vocab.md` from The Shelf."}</p></div>
-                )}
-              </div>
-            </section>
+            <Suspense fallback={<div className="mx-auto max-w-6xl pt-7 text-center text-sm text-[#64758a]">Opening your Library…</div>}>
+              <LibraryWorkspace library={library} visibleLibrary={visibleLibrary} reviewStore={reviewStore} search={librarySearch} filter={libraryFilter} reviewSyncStatus={reviewSyncStatus} rememberedFileName={rememberedDestination?.name} onSearch={setLibrarySearch} onFilter={setLibraryFilter} onEdit={updateLibraryEntry} onDelete={deleteLibraryEntry} onExport={exportBackup} onChangeFile={pickMarkdownFile} />
+            </Suspense>
           )}
 
           <section className="mx-auto mt-6 max-w-6xl rounded-2xl border border-[#d8d1c4] bg-[#f3efe5]/80 px-4 py-3 sm:px-5">

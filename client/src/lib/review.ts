@@ -1,6 +1,7 @@
 export type EntrySource = "dictionary" | "ai" | "manual" | "imported" | "needs-review";
 export type ReviewState = "new" | "learning" | "known";
 export type ReviewRating = "again" | "hard" | "good" | "easy";
+export type ReviewPromptDirection = "word-to-meaning" | "meaning-to-word";
 
 export type ReviewMetadata = {
   source: EntrySource;
@@ -59,6 +60,10 @@ export function parseReviewStore(value: string | null): ReviewStore {
 
 export function isReviewDue(metadata: ReviewMetadata | undefined, now = Date.now()): boolean {
   return !metadata || metadata.nextReviewAt <= now;
+}
+
+export function reviewPromptDirection(metadata: ReviewMetadata | undefined): ReviewPromptDirection {
+  return (metadata?.repetitions ?? 0) % 2 === 0 ? "word-to-meaning" : "meaning-to-word";
 }
 
 export function scheduleReview(metadata: ReviewMetadata, rating: ReviewRating, now = Date.now()): ReviewMetadata {

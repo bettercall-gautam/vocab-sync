@@ -21,6 +21,13 @@ export type BrowserSession = {
   revoked_at: number | null;
 };
 
+export type ReviewStateDocument = {
+  owner_key: string;
+  version: number;
+  payload: string;
+  updated_at: number;
+};
+
 export const getDriveConnection = async (db: D1Database): Promise<DriveConnection | null> =>
   db.prepare("SELECT * FROM drive_connection WHERE owner_key = ? LIMIT 1").bind(OWNER_KEY).first<DriveConnection>();
 
@@ -103,4 +110,30 @@ export const deleteConnectionAndSessions = async (db: D1Database): Promise<void>
     db.prepare("DELETE FROM browser_session WHERE owner_key = ?").bind(OWNER_KEY),
     db.prepare("DELETE FROM drive_connection WHERE owner_key = ?").bind(OWNER_KEY),
   ]);
+};
+
+export const getReviewState = async (db: D1Database): Promise<ReviewStateDocument | null> =>
+  db.prepare("SELECT * FROM review_state WHERE owner_key = ? LIMIT 1").bind(OWNER_KEY).first<ReviewStateDocument>();
+
+export const saveReviewState = async (
+  db: D1Database,
+  expectedVersion: number,
+  payload: string,
+): Promise<ReviewStateDocument | null> => {
+  const now = Date.now();
+  if (expectedVersion === 0) {
+    const created = await db
+      .prepare("INSERT INTO review_state (owner_key, version, payload, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(owner_key) DO NOTHING")
+      .bind(OWNER_KEY, 1, payload, now)
+      .run();
+    if ((created.meta.changes ?? 0) !== 1) return null;
+    return { owner_key: OWNER_KEY, version: 1, payload, updated_at: now };
+  }
+
+  const updated = await db
+    .prepare("UPDATE review_state SET version = version + 1, payload = ?, updated_at = ? WHERE owner_key = ? AND version = ?")
+    .bind(payload, now, OWNER_KEY, expectedVersion)
+    .run();
+  if ((updated.meta.changes ?? 0) !== 1) return null;
+  return { owner_key: OWNER_KEY, version: expectedVersion + 1, payload, updated_at: now };
 };

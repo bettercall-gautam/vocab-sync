@@ -4,6 +4,7 @@ import {
   entryReviewKey,
   isReviewDue,
   parseReviewStore,
+  reviewPromptDirection,
   scheduleReview,
 } from "./review";
 
@@ -28,6 +29,15 @@ describe("review helpers", () => {
     expect(first).toMatchObject({ state: "learning", repetitions: 1, nextReviewAt: 3 * 24 * 60 * 60 * 1000 + 1_000 });
     expect(second).toMatchObject({ state: "learning", repetitions: 2, nextReviewAt: 6 * 24 * 60 * 60 * 1000 + 2_000 });
     expect(easy).toMatchObject({ state: "known", repetitions: 3, nextReviewAt: 21 * 24 * 60 * 60 * 1000 + 3_000 });
+  });
+
+  it("alternates recall direction after each successful repetition", () => {
+    const newEntry = createInitialReviewMetadata("dictionary", 0);
+    const firstSuccess = scheduleReview(newEntry, "good", 1_000);
+
+    expect(reviewPromptDirection(newEntry)).toBe("word-to-meaning");
+    expect(reviewPromptDirection(firstSuccess)).toBe("meaning-to-word");
+    expect(reviewPromptDirection({ ...firstSuccess, repetitions: 2 })).toBe("word-to-meaning");
   });
 
   it("rejects malformed persisted review metadata without throwing", () => {
