@@ -63,3 +63,9 @@ OpenRouter’s limits documentation confirms an account-wide cap of 50 free-mode
 [8] [OpenRouter limits guide](https://openrouter.ai/docs/api_reference/limits)
 
 [9] [OpenRouter free-model router guide](https://openrouter.ai/docs/guides/routing/routers/free-router)
+
+## Quota-independent dictionary fallback research
+
+The Free Dictionary API exposes an English lookup endpoint at `https://api.dictionaryapi.dev/api/v2/entries/en/<word>` with definitions and optional example sentences in the returned JSON. Its public documentation says the service is and will remain free, and the endpoint does not require a user key. This makes it a suitable first choice for ordinary single English words when OpenRouter has no free capacity: it can provide a definition and, when available, a real dictionary example without consuming the user’s OpenRouter quota. It is not an LLM and cannot reliably handle phrases, uncommon proper nouns, or invent new contextual examples when the source has none. The recommended design is therefore a clearly labelled **Instant dictionary** path for individual words, with the existing OpenRouter generator reserved for phrases, dictionary misses, and richer user-selected examples.
+
+[10] [Free Dictionary API documentation](https://dictionaryapi.dev/)

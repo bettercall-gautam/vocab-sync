@@ -12,6 +12,7 @@ import {
   normalizeOpenRouterApiKey,
   normalizeWords,
   parseGeneratedVocabularyEntries,
+  parseInstantDictionaryEntry,
   parseVocabularyMarkdown,
   freeModelFallbacks,
   renderVocabularyMarkdown,
@@ -25,6 +26,35 @@ describe("vocabulary helpers", () => {
       "grit",
       "epiphany",
     ]);
+  });
+
+  it("turns a public dictionary definition and example into a concise vocabulary draft", () => {
+    expect(parseInstantDictionaryEntry([
+      {
+        meanings: [{
+          partOfSpeech: "adjective",
+          definitions: [{
+            definition: "Lasting only a short period of time.",
+            example: "Fame can be ephemeral.",
+          }],
+        }],
+      },
+    ], "ephemeral")).toEqual({
+      word: "ephemeral",
+      meaning: "Lasting only a short period of time.",
+      example: "Fame can be ephemeral.",
+    });
+  });
+
+  it("uses a short editable sentence when a public dictionary lacks an example", () => {
+    expect(parseInstantDictionaryEntry([
+      {
+        meanings: [{
+          partOfSpeech: "adjective",
+          definitions: [{ definition: "Lasting for a short period of time." }],
+        }],
+      },
+    ], "ephemeral").example).toBe("The ephemeral moment passed.");
   });
 
   it("renders and parses the established three-column Markdown table", () => {

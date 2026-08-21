@@ -180,6 +180,64 @@ export function clampVocabularyEntryToConciseLimits(entry: GeneratedVocabularyTe
   };
 }
 
+type DictionaryDefinition = {
+  definition?: unknown;
+  example?: unknown;
+};
+
+type DictionaryMeaning = {
+  partOfSpeech?: unknown;
+  definitions?: unknown;
+};
+
+function fallbackDictionaryExample(word: string, partOfSpeech: string): string {
+  if (partOfSpeech === "adjective") return `The ${word} moment passed.`;
+  if (partOfSpeech === "verb") return `They ${word} the plan.`;
+  if (partOfSpeech === "adverb") return `She spoke ${word}.`;
+  return `The ${word} mattered.`;
+}
+
+/**
+ * Converts the public Free Dictionary API response into the app's existing three-column
+ * format. It is deliberately limited to direct, ordinary-word lookup rather than AI
+ * generation, so it continues to work without an OpenRouter key or free-model quota.
+ */
+export function parseInstantDictionaryEntry(payload: unknown, requestedWord: string): GeneratedVocabularyText {
+  const records = Array.isArray(payload) ? payload : [];
+
+  for (const record of records) {
+    if (!record || typeof record !== "object") continue;
+    const meanings = (record as { meanings?: unknown }).meanings;
+    if (!Array.isArray(meanings)) continue;
+
+    for (const meaning of meanings) {
+      if (!meaning || typeof meaning !== "object") continue;
+      const rawPartOfSpeech = (meaning as DictionaryMeaning).partOfSpeech;
+      const partOfSpeech = typeof rawPartOfSpeech === "string"
+        ? rawPartOfSpeech.toLocaleLowerCase()
+        : "";
+      const definitions = (meaning as DictionaryMeaning).definitions;
+      if (!Array.isArray(definitions)) continue;
+
+      for (const definition of definitions) {
+        if (!definition || typeof definition !== "object") continue;
+        const meaningText = (definition as DictionaryDefinition).definition;
+        if (typeof meaningText !== "string" || !meaningText.trim()) continue;
+        const exampleText = (definition as DictionaryDefinition).example;
+        return clampVocabularyEntryToConciseLimits({
+          word: requestedWord.trim(),
+          meaning: meaningText.trim(),
+          example: typeof exampleText === "string" && exampleText.trim()
+            ? exampleText.trim()
+            : fallbackDictionaryExample(requestedWord.trim(), partOfSpeech),
+        });
+      }
+    }
+  }
+
+  throw new Error("The instant dictionary could not find a simple definition for this word. Try AI generation or add it manually.");
+}
+
 export function parseGeneratedVocabularyEntries(content: unknown): GeneratedVocabularyText[] {
   if (typeof content !== "string" || !content.trim()) throw new Error("Model response was empty.");
 

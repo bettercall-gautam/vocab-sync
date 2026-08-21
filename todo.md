@@ -102,4 +102,7 @@
 - [x] Publish the tolerant JSON-object response contract and confirm GitHub Pages workflow 32445065032 succeeds.
 - [ ] Verify two consecutive owner-device generations complete successfully with the tolerant response contract.
 - [x] Improve the no-cost rate-limit and perceived-speed experience without bypassing OpenRouter’s account-enforced free request cap or adding paid-model fallback.
-- [ ] Publish the immediate daily-cap handling and verify its clear no-cost recovery guidance on the owner’s device.
+- [x] Publish the immediate daily-cap handling and confirm GitHub Pages workflow 32445733502 succeeds.
+- [ ] Confirm the clear no-cost daily-cap recovery guidance on the owner’s device.
+- [x] Research and integrate a genuinely no-cost, lightweight fallback for basic vocabulary meanings and examples that remains usable after OpenRouter’s daily cap.
+- [ ] Publish the Instant Dictionary fallback and validate it on the owner’s device without an OpenRouter request.

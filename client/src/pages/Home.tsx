@@ -30,6 +30,7 @@ import {
   mergeVocabularyEntries,
   normalizeOpenRouterApiKey,
   normalizeWords,
+  parseInstantDictionaryEntry,
   parseVocabularyMarkdown,
   parseGeneratedVocabularyEntries,
   requestWithFreeModelRouter,
@@ -119,6 +120,7 @@ export default function Home() {
   const [libraryDirty, setLibraryDirty] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [dictionaryLookingUp, setDictionaryLookingUp] = useState(false);
   const [setupExpanded, setSetupExpanded] = useState(false);
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
 
@@ -524,6 +526,43 @@ export default function Home() {
     }
   }
 
+  async function lookUpInstantDictionary() {
+    if (!isOnline) {
+      toast.error("You are offline. Reconnect before using the instant dictionary.");
+      return;
+    }
+    if (wordsReady.length !== 1 || /\s/.test(wordsReady[0] ?? "")) {
+      toast.error("Instant Dictionary is for one ordinary English word. Use AI generation for phrases or a batch.");
+      return;
+    }
+
+    const [word] = wordsReady;
+    setDictionaryLookingUp(true);
+    try {
+      const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
+      if (!response.ok) {
+        throw new Error("The instant dictionary could not find this word. Try AI generation or add it manually.");
+      }
+      const dictionaryEntry = parseInstantDictionaryEntry(await response.json(), word);
+      const { entries, duplicates } = mergeVocabularyEntries([...library, ...drafts], [
+        createEntry(dictionaryEntry.word, dictionaryEntry.meaning, dictionaryEntry.example),
+      ]);
+      const fresh = entries.slice(library.length + drafts.length);
+      if (!fresh.length) {
+        toast.message("That word is already in your Library or review desk.");
+        return;
+      }
+      setDrafts(current => [...current, ...fresh]);
+      setRawWords("");
+      if (duplicates.length) toast.message(`${duplicates.length} duplicate word was skipped.`);
+      toast.success("Instant dictionary draft added. No AI key or daily AI quota was used.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The instant dictionary could not be reached. Try again or add a manual draft.");
+    } finally {
+      setDictionaryLookingUp(false);
+    }
+  }
+
   async function syncToDrive() {
     if (!isOnline) {
       toast.error("You are offline. Your drafts remain safe on this device until you reconnect.");
@@ -668,7 +707,7 @@ export default function Home() {
                     <div>
                       <div className="flex items-center gap-2 text-[#22716d]"><Sparkles size={16} /><span className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em]">Fast and free</span></div>
                       <h2 className="mt-3 font-display text-2xl font-semibold tracking-[-0.025em]">Drop in the words you met today.</h2>
-                      <p className="mt-2 max-w-xl text-sm leading-6 text-[#617087]">Paste words, phrases, or a messy comma separated list. The generator will keep each meaning simple and each example short.</p>
+                      <p className="mt-2 max-w-xl text-sm leading-6 text-[#617087]">Paste words, phrases, or a messy comma separated list. Use Instant Dictionary for one quick English word, or AI for richer notes and phrases.</p>
                     </div>
                     <span className="rounded-full bg-[#edf3f7] px-3 py-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-[#4e637b]">{wordsReady.length} ready</span>
                   </div>
@@ -681,8 +720,12 @@ export default function Home() {
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                     <p className="text-xs text-[#77869a]">Duplicates are removed before generation. Nothing is sent to Drive automatically.</p>
                     <div className="flex gap-2">
-                      <Button variant="ghost" onClick={addManualEntry} className="h-10 rounded-xl px-3 text-xs font-semibold text-[#42607a] hover:bg-[#edf3f7]"><Plus size={15} className="mr-1.5" /> Manual entry</Button>
-                      <Button onClick={generateEntries} disabled={generating || !wordsReady.length || !isOnline} className="h-10 rounded-xl bg-[#183e66] px-4 text-xs font-semibold text-white hover:bg-[#123454]">
+                      <Button variant="ghost" onClick={addManualEntry} disabled={generating || dictionaryLookingUp} className="h-10 rounded-xl px-3 text-xs font-semibold text-[#42607a] hover:bg-[#edf3f7]"><Plus size={15} className="mr-1.5" /> Manual entry</Button>
+                      <Button variant="outline" onClick={lookUpInstantDictionary} disabled={generating || dictionaryLookingUp || wordsReady.length !== 1 || /\s/.test(wordsReady[0] ?? "") || !isOnline} className="h-10 rounded-xl border-[#bad4d0] bg-[#f5fbfa] px-3 text-xs font-semibold text-[#22716d] hover:bg-[#e6f4f1]">
+                        {dictionaryLookingUp ? <LoaderCircle size={15} className="mr-2 animate-spin" /> : <BookOpen size={15} className="mr-2" />}
+                        Instant dictionary
+                      </Button>
+                      <Button onClick={generateEntries} disabled={generating || dictionaryLookingUp || !wordsReady.length || !isOnline} className="h-10 rounded-xl bg-[#183e66] px-4 text-xs font-semibold text-white hover:bg-[#123454]">
                         {generating ? <LoaderCircle size={15} className="mr-2 animate-spin" /> : <Sparkles size={15} className="mr-2" />}
                         Generate drafts
                       </Button>
@@ -743,7 +786,7 @@ export default function Home() {
 
                 <section className="rounded-3xl border border-[#e4d8bd] bg-[#fff7e3] p-5">
                   <div className="flex items-center gap-2 text-[#9a6c13]"><TriangleAlert size={16} /><span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em]">Free tier rule</span></div>
-                  <p className="mt-2 text-xs leading-5 text-[#796131]">The app sends requests only to OpenRouter’s free model pool. It stops instead of falling back to a paid model.</p>
+                  <p className="mt-2 text-xs leading-5 text-[#796131]">AI requests stay in OpenRouter’s free model pool. Instant Dictionary is a separate no-key lookup for one ordinary English word, so it does not use your AI daily quota.</p>
                 </section>
 
                 {workerOrigin && deviceSession && (
