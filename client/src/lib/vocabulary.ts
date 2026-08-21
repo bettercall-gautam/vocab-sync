@@ -227,6 +227,11 @@ function isRetryableFreeModelFailure(error: unknown): boolean {
   return /\b(408|409|425|429|500|502|503|504)\b|network|timeout|temporar|busy|overload|empty|not valid json|did not contain vocabulary|usable vocabulary|did not return every requested word/i.test(message);
 }
 
+function isAccountFreeModelDailyLimit(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /free[- ]models[- ]per[- ]day|free model.*requests? per day/i.test(message);
+}
+
 function shouldRetryWithoutDelay(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return /empty|not valid json|did not contain vocabulary|usable vocabulary/i.test(message);
@@ -259,6 +264,11 @@ export async function requestWithFreeModelRouter<T>(
         return { value: await request([model]), attempts, candidates };
       } catch (error) {
         lastError = error;
+        if (isAccountFreeModelDailyLimit(error)) {
+          throw new Error(
+            "OpenRouter's daily free-model limit has been reached. Add a manual draft now, then retry after OpenRouter resets the limit. No paid model was used. Your words are still safe.",
+          );
+        }
         if (!isRetryableFreeModelFailure(error)) {
           throw new Error(
             `Free generation could not run after ${candidates.length} verified free models. ${conciseFailureReason(error)}. Your words are still safe.`,

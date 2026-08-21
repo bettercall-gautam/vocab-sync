@@ -40,6 +40,10 @@ The selected production strategy uses `openai/gpt-oss-20b:free` as the primary a
 
 The live latency-sorted zero-cost structured-output catalog ranks durable `nvidia/nemotron-3-super-120b-a12b:free` ahead of `openai/gpt-oss-20b:free`. The current priority order therefore optimizes documented JSON quality before speed. The owner’s eight successful responses out of nine confirm the strategy is broadly functional, but the reported latency makes that tradeoff wrong for this one-word tool. The next measured change should reverse only these two stable models, retaining the same schema, free Response Healing, local concision, and free-only safety guard. The attached five-model error is from an earlier build and cannot be attributed to the verified two-model asset.
 
+### Free-tier cap follow-up
+
+OpenRouter’s limits documentation confirms an account-wide cap of 50 free-model requests per day and 20 free-model requests per minute for accounts that have purchased less than 10 credits. The owner’s latest `429 free-models-per-day` screenshot is therefore an OpenRouter account-limit event, not a model or Vocab Sync defect. Additional API keys or accounts do not alter those globally governed limits. The app cannot make a successful free request faster after the provider has rejected it, but it can recognize this specific account-level limit immediately and stop futile retries across the second model. The planned no-cost refinement is a direct, clear daily-cap message that recommends waiting for the provider reset or using the existing manual-entry path, not a paid fallback or quota-bypass attempt.
+
 ## Sources
 
 [1] [OpenRouter live model catalog](https://openrouter.ai/api/v1/models)
@@ -55,3 +59,7 @@ The live latency-sorted zero-cost structured-output catalog ranks durable `nvidi
 [6] [OpenRouter Response Healing announcement](https://openrouter.ai/blog/announcements/response-healing-reduce-json-defects-by-80percent/)
 
 [7] [OpenRouter reasoning-token guide](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens)
+
+[8] [OpenRouter limits guide](https://openrouter.ai/docs/api_reference/limits)
+
+[9] [OpenRouter free-model router guide](https://openrouter.ai/docs/guides/routing/routers/free-router)

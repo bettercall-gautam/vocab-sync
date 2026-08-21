@@ -99,4 +99,7 @@
 - [ ] Validate the current production bundle and its generation responsiveness on the owner’s device.
 - [x] Check the authorized browser for a nonempty saved OpenRouter key without reading it; this sandbox browser has no such key, so no live request could be run here.
 - [x] Replace the brittle strict-JSON response contract because the current two free models can both return malformed output despite schema enforcement and response healing.
-- [ ] Publish the tolerant JSON-object response contract and verify two consecutive owner-device generations complete successfully.
+- [x] Publish the tolerant JSON-object response contract and confirm GitHub Pages workflow 32445065032 succeeds.
+- [ ] Verify two consecutive owner-device generations complete successfully with the tolerant response contract.
+- [x] Improve the no-cost rate-limit and perceived-speed experience without bypassing OpenRouter’s account-enforced free request cap or adding paid-model fallback.
+- [ ] Publish the immediate daily-cap handling and verify its clear no-cost recovery guidance on the owner’s device.

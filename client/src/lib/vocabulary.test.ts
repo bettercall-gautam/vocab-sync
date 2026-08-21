@@ -175,6 +175,19 @@ describe("vocabulary helpers", () => {
     )).rejects.toThrow("OpenRouter 401: invalid API key");
   });
 
+  it("stops immediately when OpenRouter has reached the account-level daily free-model cap", async () => {
+    const calls: string[][] = [];
+    await expect(requestWithFreeModelRouter(
+      async models => {
+        calls.push([...models]);
+        throw new Error("OpenRouter 429 (429): Rate limit exceeded: free-models-per-day");
+      },
+      ["first:free", "second:free"],
+      0,
+    )).rejects.toThrow("daily free-model limit has been reached");
+    expect(calls).toEqual([["first:free"]]);
+  });
+
   it("accepts compact vocabulary notes and rejects overlong model output", () => {
     expect(isConciseVocabularyEntry({
       word: "hypothesis",
