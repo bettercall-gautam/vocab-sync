@@ -190,6 +190,17 @@ type DictionaryMeaning = {
   definitions?: unknown;
 };
 
+type WiktionaryDefinition = {
+  definition?: unknown;
+  examples?: unknown;
+  parsedExamples?: unknown;
+};
+
+type WiktionarySense = {
+  partOfSpeech?: unknown;
+  definitions?: unknown;
+};
+
 function fallbackDictionaryExample(word: string, partOfSpeech: string): string {
   if (partOfSpeech === "adjective") return `The ${word} moment passed.`;
   if (partOfSpeech === "verb") return `They ${word} the plan.`;
@@ -236,6 +247,69 @@ export function parseInstantDictionaryEntry(payload: unknown, requestedWord: str
   }
 
   throw new Error("The instant dictionary could not find a simple definition for this word. Try AI generation or add it manually.");
+}
+
+function cleanWiktionaryText(value: string): string {
+  return value
+    .replace(/\*\*/g, "")
+    .replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, "$2")
+    .replace(/\[\[([^\]]+)\]\]/g, "$1")
+    .replace(/^\s*\[+/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function firstWiktionaryExample(value: unknown): string | null {
+  if (typeof value === "string" && value.trim()) return cleanWiktionaryText(value);
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      if (typeof item === "string" && item.trim()) return cleanWiktionaryText(item);
+      if (item && typeof item === "object" && typeof (item as { example?: unknown }).example === "string") {
+        return cleanWiktionaryText((item as { example: string }).example);
+      }
+    }
+  }
+  if (value && typeof value === "object" && typeof (value as { example?: unknown }).example === "string") {
+    return cleanWiktionaryText((value as { example: string }).example);
+  }
+  return null;
+}
+
+/**
+ * Parses the public English Wiktionary definition endpoint as a second dictionary
+ * source. It is used only after the primary no-key dictionary source cannot help.
+ */
+export function parseWiktionaryDictionaryEntry(payload: unknown, requestedWord: string): GeneratedVocabularyText {
+  const englishSenses = payload && typeof payload === "object"
+    ? (payload as { en?: unknown }).en
+    : null;
+  if (!Array.isArray(englishSenses)) {
+    throw new Error("The secondary dictionary did not return an English definition.");
+  }
+
+  for (const sense of englishSenses) {
+    if (!sense || typeof sense !== "object") continue;
+    const rawPartOfSpeech = (sense as WiktionarySense).partOfSpeech;
+    const partOfSpeech = typeof rawPartOfSpeech === "string" ? rawPartOfSpeech.toLocaleLowerCase() : "";
+    const rawDefinitions = (sense as WiktionarySense).definitions;
+    const definitions = Array.isArray(rawDefinitions) ? rawDefinitions : [rawDefinitions];
+
+    for (const definition of definitions) {
+      if (!definition || typeof definition !== "object") continue;
+      const text = (definition as WiktionaryDefinition).definition;
+      if (typeof text !== "string" || !cleanWiktionaryText(text)) continue;
+      const example = firstWiktionaryExample((definition as WiktionaryDefinition).examples)
+        ?? firstWiktionaryExample((definition as WiktionaryDefinition).parsedExamples)
+        ?? fallbackDictionaryExample(requestedWord.trim(), partOfSpeech);
+      return clampVocabularyEntryToConciseLimits({
+        word: requestedWord.trim(),
+        meaning: cleanWiktionaryText(text),
+        example,
+      });
+    }
+  }
+
+  throw new Error("The secondary dictionary could not find a simple English definition.");
 }
 
 export function parseGeneratedVocabularyEntries(content: unknown): GeneratedVocabularyText[] {

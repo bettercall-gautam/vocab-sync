@@ -31,6 +31,7 @@ import {
   normalizeOpenRouterApiKey,
   normalizeWords,
   parseInstantDictionaryEntry,
+  parseWiktionaryDictionaryEntry,
   parseVocabularyMarkdown,
   parseGeneratedVocabularyEntries,
   requestWithFreeModelRouter,
@@ -532,6 +533,18 @@ export default function Home() {
     }
   }
 
+  async function fetchDictionaryEntry(word: string) {
+    try {
+      const primaryResponse = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
+      if (!primaryResponse.ok) throw new Error("primary_dictionary_miss");
+      return parseInstantDictionaryEntry(await primaryResponse.json(), word);
+    } catch {
+      const wiktionaryResponse = await fetch(`https://en.wiktionary.org/api/rest_v1/page/definition/${encodeURIComponent(word)}`);
+      if (!wiktionaryResponse.ok) throw new Error("dictionary_miss");
+      return parseWiktionaryDictionaryEntry(await wiktionaryResponse.json(), word);
+    }
+  }
+
   async function lookUpInstantDictionary(fallbackToAi = true) {
     if (!isOnline) {
       toast.error("You are offline. Reconnect before using the instant dictionary.");
@@ -550,9 +563,7 @@ export default function Home() {
     const [word] = wordsReady;
     setDictionaryLookingUp(true);
     try {
-      const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
-      if (!response.ok) throw new Error("dictionary_miss");
-      const dictionaryEntry = parseInstantDictionaryEntry(await response.json(), word);
+      const dictionaryEntry = await fetchDictionaryEntry(word);
       const { entries, duplicates } = mergeVocabularyEntries([...library, ...drafts], [
         createEntry(dictionaryEntry.word, dictionaryEntry.meaning, dictionaryEntry.example),
       ]);

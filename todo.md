@@ -112,4 +112,8 @@
 - [ ] Confirm the three visible capture choices on the owner’s phone.
 - [x] Redesign the capture workflow into explicit Manual, Dictionary, and AI modes so the user always knows which path is active.
 - [x] Implement automatic AI fallback when the Instant Dictionary cannot find a word, showing an error popup only if both fail.
-- [ ] Publish the explicit three-mode UX and verify Dictionary-to-AI fallback on the owner’s device.
+- [x] Publish the explicit three-mode UX and confirm GitHub Pages workflow 32447676495 succeeds.
+- [ ] Verify Dictionary-first, AI-backup behavior and the three visible modes on the owner’s device.
+- [x] Diagnose and correct Dictionary mode failures for common words such as gorgeous and problem before permitting AI fallback, superseded by the completed two-source Dictionary correction below.
+- [x] Diagnose and correct Dictionary mode failures for common words such as gorgeous and problem by adding a CORS-verified public Wiktionary secondary source before AI fallback.
+- [ ] Publish the two-source Dictionary reliability update and verify common-word lookups on the owner’s device.

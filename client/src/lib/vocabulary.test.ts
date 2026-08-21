@@ -13,6 +13,7 @@ import {
   normalizeWords,
   parseGeneratedVocabularyEntries,
   parseInstantDictionaryEntry,
+  parseWiktionaryDictionaryEntry,
   parseVocabularyMarkdown,
   freeModelFallbacks,
   renderVocabularyMarkdown,
@@ -55,6 +56,22 @@ describe("vocabulary helpers", () => {
         }],
       },
     ], "ephemeral").example).toBe("The ephemeral moment passed.");
+  });
+
+  it("parses a Wiktionary common-word response as a second no-key dictionary source", () => {
+    expect(parseWiktionaryDictionaryEntry({
+      en: [{
+        partOfSpeech: "Adjective",
+        definitions: [{
+          definition: " Very beautiful.",
+          examples: ["The sunsets in Hawaii are **gorgeous**."],
+        }],
+      }],
+    }, "gorgeous")).toEqual({
+      word: "gorgeous",
+      meaning: "Very beautiful.",
+      example: "The sunsets in Hawaii are gorgeous.",
+    });
   });
 
   it("renders and parses the established three-column Markdown table", () => {
