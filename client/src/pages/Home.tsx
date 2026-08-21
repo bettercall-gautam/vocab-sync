@@ -26,6 +26,7 @@ import {
   createFingerprint,
   hasDriveConflict,
   hasSyncableVocabularyChanges,
+  isOrdinaryEnglishDictionaryWord,
   isConciseVocabularyEntry,
   mergeVocabularyEntries,
   normalizeOpenRouterApiKey,
@@ -60,7 +61,7 @@ type DriveConnection = {
   expiresAt: number;
 };
 
-type CaptureMode = "manual" | "dictionary" | "ai";
+type CaptureMode = "smart" | "manual" | "ai";
 
 type SelectedFile = {
   id: string;
@@ -124,7 +125,7 @@ export default function Home() {
   const [syncing, setSyncing] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [dictionaryLookingUp, setDictionaryLookingUp] = useState(false);
-  const [captureMode, setCaptureMode] = useState<CaptureMode>("ai");
+  const [captureMode, setCaptureMode] = useState<CaptureMode>("smart");
   const [setupExpanded, setSetupExpanded] = useState(false);
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
 
@@ -408,6 +409,20 @@ export default function Home() {
     toast.success(`${manualEntries.length} editable manual draft${manualEntries.length === 1 ? "" : "s"} added.`);
   }
 
+  function preserveInputAsManualDrafts(reason: string) {
+    if (!wordsReady.length) return;
+    const manualEntries = wordsReady.map(word => createEntry(word));
+    const { entries, duplicates } = mergeVocabularyEntries([...library, ...drafts], manualEntries);
+    const fresh = entries.slice(library.length + drafts.length);
+    if (fresh.length) setDrafts(current => [...current, ...fresh]);
+    setRawWords("");
+    if (fresh.length) {
+      toast.message(`${reason} ${fresh.length} editable draft${fresh.length === 1 ? " was" : "s were"} saved instead.`);
+    } else if (duplicates.length) {
+      toast.message(`${reason} That input already exists in your Library or review desk.`);
+    }
+  }
+
   function updateDraft(id: string, field: keyof Pick<VocabularyEntry, "word" | "meaning" | "example">, value: string) {
     setDrafts(current => current.map(entry => (entry.id === id ? { ...entry, [field]: value } : entry)));
   }
@@ -429,7 +444,7 @@ export default function Home() {
 
   async function generateEntries() {
     if (!isOnline) {
-      toast.error("You are offline. You can still add a manual draft, but AI generation needs a connection.");
+      preserveInputAsManualDrafts("You are offline, so AI could not run.");
       return;
     }
     if (!wordsReady.length) {
@@ -439,7 +454,7 @@ export default function Home() {
     const openRouterToken = normalizeOpenRouterApiKey(openRouterKey);
     if (!openRouterToken) {
       setSetupExpanded(true);
-      toast.error("Add your OpenRouter key to generate entries.");
+      preserveInputAsManualDrafts("Add your OpenRouter key to fill these automatically.");
       return;
     }
 
@@ -527,7 +542,8 @@ export default function Home() {
       if (duplicates.length) toast.message(`${duplicates.length} duplicate word${duplicates.length === 1 ? " was" : "s were"} skipped.`);
       toast.success(`${fresh.length} draft ${fresh.length === 1 ? "entry" : "entries"} generated with ${model}.`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Generation could not be completed.");
+      const reason = error instanceof Error ? error.message : "Free generation could not be completed.";
+      preserveInputAsManualDrafts(reason);
     } finally {
       setGenerating(false);
     }
@@ -545,22 +561,23 @@ export default function Home() {
     }
   }
 
-  async function lookUpInstantDictionary(fallbackToAi = true) {
-    if (!isOnline) {
-      toast.error("You are offline. Reconnect before using the instant dictionary.");
+  async function captureSmart() {
+    if (!wordsReady.length) {
+      toast.error("Paste at least one word or phrase first.");
       return;
     }
-    if (wordsReady.length !== 1 || /\s/.test(wordsReady[0] ?? "")) {
-      if (fallbackToAi) {
-        toast.message("Dictionary mode supports one word, so AI will handle this phrase or batch.");
-        await generateEntries();
-      } else {
-        toast.error("Dictionary mode supports one ordinary English word. Use AI mode for phrases or a batch.");
-      }
+    if (!isOnline) {
+      preserveInputAsManualDrafts("You are offline, so Smart capture could not look this up.");
       return;
     }
 
-    const [word] = wordsReady;
+    const word = wordsReady[0] ?? "";
+    if (wordsReady.length !== 1 || !isOrdinaryEnglishDictionaryWord(word)) {
+      toast.message("Smart capture is sending this phrase, batch, or non-English input to AI.");
+      await generateEntries();
+      return;
+    }
+
     setDictionaryLookingUp(true);
     try {
       const dictionaryEntry = await fetchDictionaryEntry(word);
@@ -576,16 +593,14 @@ export default function Home() {
       setRawWords("");
       if (duplicates.length) toast.message(`${duplicates.length} duplicate word was skipped.`);
       toast.success("Dictionary draft added. No AI key or daily AI quota was used.");
+      return;
     } catch (error) {
-      if (fallbackToAi) {
-        toast.message("Dictionary did not find that word. Trying AI now.");
-        await generateEntries();
-      } else {
-        throw error;
-      }
+      toast.message("The dictionary could not give a clean result. Trying AI now.");
     } finally {
       setDictionaryLookingUp(false);
     }
+
+    await generateEntries();
   }
 
   async function runSelectedCaptureMode() {
@@ -593,8 +608,8 @@ export default function Home() {
       addManualEntry();
       return;
     }
-    if (captureMode === "dictionary") {
-      await lookUpInstantDictionary(true);
+    if (captureMode === "smart") {
+      await captureSmart();
       return;
     }
     await generateEntries();
@@ -744,7 +759,7 @@ export default function Home() {
                     <div>
                       <div className="flex items-center gap-2 text-[#22716d]"><Sparkles size={16} /><span className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em]">Choose your method</span></div>
                       <h2 className="mt-3 font-display text-2xl font-semibold tracking-[-0.025em]">Drop in the words you met today.</h2>
-                      <p className="mt-2 max-w-xl text-sm leading-6 text-[#617087]">Choose exactly how this input becomes a draft. Dictionary mode tries the dictionary first, then AI only when the dictionary cannot help.</p>
+                      <p className="mt-2 max-w-xl text-sm leading-6 text-[#617087]">Smart capture checks an English dictionary first, then uses AI for phrases, unfamiliar words, or misses. If AI cannot answer, your input still becomes an editable draft.</p>
                     </div>
                     <span className="rounded-full bg-[#edf3f7] px-3 py-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-[#4e637b]">{wordsReady.length} ready</span>
                   </div>
@@ -756,8 +771,8 @@ export default function Home() {
                   />
                   <div className="mt-5 grid gap-2 sm:grid-cols-3">
                     {([
+                      { id: "smart" as const, label: "Smart", detail: "Dictionary, then AI, never loses input", icon: BookOpen },
                       { id: "manual" as const, label: "Manual", detail: "Edit every field yourself", icon: Plus },
-                      { id: "dictionary" as const, label: "Dictionary", detail: "Dictionary first, AI backup", icon: BookOpen },
                       { id: "ai" as const, label: "AI", detail: "Free AI for words or phrases", icon: Sparkles },
                     ]).map(mode => {
                       const Icon = mode.icon;
@@ -777,10 +792,10 @@ export default function Home() {
                     })}
                   </div>
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-xs text-[#77869a]">{captureMode === "manual" ? "Creates editable blank fields, prefilled with your words." : captureMode === "dictionary" ? "Tries Dictionary first, then AI if the word is not found." : "Uses only the configured free OpenRouter models."}</p>
-                    <Button onClick={() => void runSelectedCaptureMode()} disabled={generating || dictionaryLookingUp || (captureMode !== "manual" && !isOnline) || (captureMode !== "manual" && !wordsReady.length)} className={`h-11 w-full rounded-xl px-4 text-xs font-bold sm:w-auto ${captureMode === "manual" ? "bg-[#7357a4] hover:bg-[#60488f]" : captureMode === "dictionary" ? "bg-[#22716d] hover:bg-[#195b58]" : "bg-[#183e66] hover:bg-[#123454]"}`}>
-                      {generating || dictionaryLookingUp ? <LoaderCircle size={15} className="mr-2 animate-spin" /> : captureMode === "manual" ? <Plus size={15} className="mr-2" /> : captureMode === "dictionary" ? <BookOpen size={15} className="mr-2" /> : <Sparkles size={15} className="mr-2" />}
-                      {captureMode === "manual" ? "Add manual draft" : captureMode === "dictionary" ? "Lookup then add draft" : "Generate with AI"}
+                    <p className="text-xs text-[#77869a]">{captureMode === "manual" ? "Creates editable blank fields, prefilled with your words." : captureMode === "smart" ? "One simple word tries a clean dictionary first. Phrases and dictionary misses go to AI, then a safe manual draft if needed." : "Uses only the configured free OpenRouter models, then saves an editable draft if free AI is unavailable."}</p>
+                    <Button onClick={() => void runSelectedCaptureMode()} disabled={generating || dictionaryLookingUp || (captureMode !== "manual" && !wordsReady.length)} className={`h-11 w-full rounded-xl px-4 text-xs font-bold sm:w-auto ${captureMode === "manual" ? "bg-[#7357a4] hover:bg-[#60488f]" : captureMode === "smart" ? "bg-[#22716d] hover:bg-[#195b58]" : "bg-[#183e66] hover:bg-[#123454]"}`}>
+                      {generating || dictionaryLookingUp ? <LoaderCircle size={15} className="mr-2 animate-spin" /> : captureMode === "manual" ? <Plus size={15} className="mr-2" /> : captureMode === "smart" ? <BookOpen size={15} className="mr-2" /> : <Sparkles size={15} className="mr-2" />}
+                      {captureMode === "manual" ? "Add manual draft" : captureMode === "smart" ? "Make Smart draft" : "Generate with AI"}
                     </Button>
                   </div>
                 </div>
@@ -838,7 +853,7 @@ export default function Home() {
 
                 <section className="rounded-3xl border border-[#e4d8bd] bg-[#fff7e3] p-5">
                   <div className="flex items-center gap-2 text-[#9a6c13]"><TriangleAlert size={16} /><span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em]">Free tier rule</span></div>
-                  <p className="mt-2 text-xs leading-5 text-[#796131]">Manual creates editable drafts. Dictionary tries the public dictionary first, then falls back to AI if needed. Direct AI stays free-only and never uses paid models.</p>
+                  <p className="mt-2 text-xs leading-5 text-[#796131]">Manual creates editable drafts. Smart tries the public dictionary first, then AI if needed. Direct AI stays free-only and never uses paid models.</p>
                 </section>
 
                 {workerOrigin && deviceSession && (

@@ -116,4 +116,9 @@
 - [ ] Verify Dictionary-first, AI-backup behavior and the three visible modes on the owner’s device.
 - [x] Diagnose and correct Dictionary mode failures for common words such as gorgeous and problem before permitting AI fallback, superseded by the completed two-source Dictionary correction below.
 - [x] Diagnose and correct Dictionary mode failures for common words such as gorgeous and problem by adding a CORS-verified public Wiktionary secondary source before AI fallback.
-- [ ] Publish the two-source Dictionary reliability update and verify common-word lookups on the owner’s device.
+- [x] Publish the two-source Dictionary reliability update and confirm GitHub Pages workflow 32449921971 succeeds.
+- [ ] Verify common-word Dictionary lookups on the owner’s device without AI fallback.
+- [x] Add Smart mode as the default path: clean dictionary for an ordinary English word, AI for phrases or dictionary misses, then a prefilled manual draft if AI cannot complete.
+- [x] Guarantee that every submitted word or phrase is retained as a draft even when both dictionary and free AI fail.
+- [ ] Publish the Smart universal capture and markup-cleaning update to GitHub Pages.
+- [ ] Validate on the owner’s device: `adore` gets a clean dictionary draft, a phrase uses AI, and unavailable AI still preserves an editable draft.

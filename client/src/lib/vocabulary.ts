@@ -42,6 +42,15 @@ export function normalizeWords(input: string): string[] {
     });
 }
 
+/**
+ * The free dictionary sources only work reliably for one simple Latin-script word.
+ * Phrases and other scripts should go straight to AI; unfamiliar Latin words can still
+ * attempt the dictionary and then fall through to AI when no clean entry exists.
+ */
+export function isOrdinaryEnglishDictionaryWord(value: string): boolean {
+  return /^[A-Za-z]+(?:['’][A-Za-z]+)?$/.test(value.trim());
+}
+
 function cellsFromRow(row: string): string[] {
   return row
     .trim()
@@ -198,6 +207,7 @@ type WiktionaryDefinition = {
 
 type WiktionarySense = {
   partOfSpeech?: unknown;
+  language?: unknown;
   definitions?: unknown;
 };
 
@@ -215,6 +225,7 @@ function fallbackDictionaryExample(word: string, partOfSpeech: string): string {
  */
 export function parseInstantDictionaryEntry(payload: unknown, requestedWord: string): GeneratedVocabularyText {
   const records = Array.isArray(payload) ? payload : [];
+  const candidates: Array<{ meaning: string; example: string | null; partOfSpeech: string }> = [];
 
   for (const record of records) {
     if (!record || typeof record !== "object") continue;
@@ -235,44 +246,70 @@ export function parseInstantDictionaryEntry(payload: unknown, requestedWord: str
         const meaningText = (definition as DictionaryDefinition).definition;
         if (typeof meaningText !== "string" || !meaningText.trim()) continue;
         const exampleText = (definition as DictionaryDefinition).example;
-        return clampVocabularyEntryToConciseLimits({
-          word: requestedWord.trim(),
+        candidates.push({
           meaning: meaningText.trim(),
-          example: typeof exampleText === "string" && exampleText.trim()
-            ? exampleText.trim()
-            : fallbackDictionaryExample(requestedWord.trim(), partOfSpeech),
+          example: typeof exampleText === "string" && exampleText.trim() ? exampleText.trim() : null,
+          partOfSpeech,
         });
       }
     }
+  }
+
+  const selected = candidates.find(candidate => candidate.example) ?? candidates[0];
+  if (selected) {
+    return clampVocabularyEntryToConciseLimits({
+      word: requestedWord.trim(),
+      meaning: selected.meaning,
+      example: selected.example ?? fallbackDictionaryExample(requestedWord.trim(), selected.partOfSpeech),
+    });
   }
 
   throw new Error("The instant dictionary could not find a simple definition for this word. Try AI generation or add it manually.");
 }
 
 function cleanWiktionaryText(value: string): string {
-  return value
+  const decoded = value
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<!--([\s\S]*?)-->/g, " ")
+    .replace(/<[^>]+>/g, " ")
     .replace(/\*\*/g, "")
     .replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, "$2")
     .replace(/\[\[([^\]]+)\]\]/g, "$1")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&#x([0-9a-f]+);/gi, (_, code: string) => String.fromCodePoint(Number.parseInt(code, 16)))
+    .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number.parseInt(code, 10)));
+
+  return decoded
     .replace(/^\s*\[+/, "")
+    .replace(/\s+([,.;:!?])/g, "$1")
     .replace(/\s+/g, " ")
     .trim();
 }
 
 function firstWiktionaryExample(value: unknown): string | null {
-  if (typeof value === "string" && value.trim()) return cleanWiktionaryText(value);
+  if (typeof value === "string" && cleanWiktionaryText(value)) return cleanWiktionaryText(value);
   if (Array.isArray(value)) {
     for (const item of value) {
-      if (typeof item === "string" && item.trim()) return cleanWiktionaryText(item);
+      if (typeof item === "string" && cleanWiktionaryText(item)) return cleanWiktionaryText(item);
       if (item && typeof item === "object" && typeof (item as { example?: unknown }).example === "string") {
-        return cleanWiktionaryText((item as { example: string }).example);
+        const cleaned = cleanWiktionaryText((item as { example: string }).example);
+        if (cleaned) return cleaned;
       }
     }
   }
   if (value && typeof value === "object" && typeof (value as { example?: unknown }).example === "string") {
-    return cleanWiktionaryText((value as { example: string }).example);
+    const cleaned = cleanWiktionaryText((value as { example: string }).example);
+    if (cleaned) return cleaned;
   }
   return null;
+}
+
+function isInflectionOnlyDefinition(value: string): boolean {
+  return /\b(inflection|present participle|past tense|past participle|plural|gerund|alternative form|form of)\b/i.test(value);
 }
 
 /**
@@ -287,8 +324,11 @@ export function parseWiktionaryDictionaryEntry(payload: unknown, requestedWord: 
     throw new Error("The secondary dictionary did not return an English definition.");
   }
 
+  const candidates: Array<{ meaning: string; example: string | null; partOfSpeech: string }> = [];
   for (const sense of englishSenses) {
     if (!sense || typeof sense !== "object") continue;
+    const rawLanguage = (sense as WiktionarySense).language;
+    if (typeof rawLanguage === "string" && rawLanguage.toLocaleLowerCase() !== "english") continue;
     const rawPartOfSpeech = (sense as WiktionarySense).partOfSpeech;
     const partOfSpeech = typeof rawPartOfSpeech === "string" ? rawPartOfSpeech.toLocaleLowerCase() : "";
     const rawDefinitions = (sense as WiktionarySense).definitions;
@@ -297,16 +337,29 @@ export function parseWiktionaryDictionaryEntry(payload: unknown, requestedWord: 
     for (const definition of definitions) {
       if (!definition || typeof definition !== "object") continue;
       const text = (definition as WiktionaryDefinition).definition;
-      if (typeof text !== "string" || !cleanWiktionaryText(text)) continue;
+      const meaning = typeof text === "string" ? cleanWiktionaryText(text) : "";
+      if (!meaning || !/[A-Za-z]/.test(meaning)) continue;
       const example = firstWiktionaryExample((definition as WiktionaryDefinition).examples)
         ?? firstWiktionaryExample((definition as WiktionaryDefinition).parsedExamples)
-        ?? fallbackDictionaryExample(requestedWord.trim(), partOfSpeech);
-      return clampVocabularyEntryToConciseLimits({
-        word: requestedWord.trim(),
-        meaning: cleanWiktionaryText(text),
-        example,
-      });
+        ?? null;
+      candidates.push({ meaning, example, partOfSpeech });
     }
+  }
+
+  const selected = [...candidates].sort((left, right) => {
+    const score = (candidate: { meaning: string; example: string | null }) => (
+      (candidate.example ? 3 : 0)
+      + (isInflectionOnlyDefinition(candidate.meaning) ? -4 : 1)
+      + (candidate.meaning.split(/\s+/).length >= 3 ? 1 : 0)
+    );
+    return score(right) - score(left);
+  })[0];
+  if (selected) {
+    return clampVocabularyEntryToConciseLimits({
+      word: requestedWord.trim(),
+      meaning: selected.meaning,
+      example: selected.example ?? fallbackDictionaryExample(requestedWord.trim(), selected.partOfSpeech),
+    });
   }
 
   throw new Error("The secondary dictionary could not find a simple English definition.");

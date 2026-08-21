@@ -6,6 +6,7 @@ import {
   groupFreeModelsForOpenRouter,
   hasSyncableVocabularyChanges,
   hasDriveConflict,
+  isOrdinaryEnglishDictionaryWord,
   isConciseVocabularyEntry,
   isFreeOnlyModel,
   mergeVocabularyEntries,
@@ -58,6 +59,27 @@ describe("vocabulary helpers", () => {
     ], "ephemeral").example).toBe("The ephemeral moment passed.");
   });
 
+  it("prefers a primary dictionary definition with a real example over an earlier bare definition", () => {
+    expect(parseInstantDictionaryEntry([
+      {
+        meanings: [{
+          partOfSpeech: "verb",
+          definitions: [
+            { definition: "To worship." },
+            {
+              definition: "To love with one's entire heart and soul; regard with deep respect.",
+              example: "Gerry adores Heather.",
+            },
+          ],
+        }],
+      },
+    ], "adore")).toEqual({
+      word: "adore",
+      meaning: "To love with one's entire heart and soul;",
+      example: "Gerry adores Heather.",
+    });
+  });
+
   it("parses a Wiktionary common-word response as a second no-key dictionary source", () => {
     expect(parseWiktionaryDictionaryEntry({
       en: [{
@@ -72,6 +94,58 @@ describe("vocabulary helpers", () => {
       meaning: "Very beautiful.",
       example: "The sunsets in Hawaii are gorgeous.",
     });
+  });
+
+  it("strips raw Wiktionary HTML and skips a non-English label before selecting an English definition", () => {
+    expect(parseWiktionaryDictionaryEntry({
+      en: [
+        {
+          language: "Translingual",
+          partOfSpeech: "Symbol",
+          definitions: [{
+            definition: '<span class="usage-label-sense" about="#mwt4"></span> ISO language code for Old Welsh.',
+          }],
+        },
+        {
+          language: "English",
+          partOfSpeech: "Noun",
+          definitions: [{
+            definition: '<span class="usage-label-sense"></span> Any <a rel="mw:WikiLink" href="/wiki/bird">bird</a> of prey.',
+            parsedExamples: [{ example: 'The <b>owl</b> watched quietly<span typeof="mw:Entity">.</span>' }],
+          }],
+        },
+      ],
+    }, "owl")).toEqual({
+      word: "owl",
+      meaning: "Any bird of prey.",
+      example: "The owl watched quietly.",
+    });
+  });
+
+  it("ranks an actual word sense above a Wiktionary inflection-only label", () => {
+    expect(parseWiktionaryDictionaryEntry({
+      en: [{
+        language: "English",
+        partOfSpeech: "Verb",
+        definitions: [{ definition: "present participle and gerund of adore" }],
+      }, {
+        language: "English",
+        partOfSpeech: "Adjective",
+        definitions: [{ definition: "Showing adoration or admiration." }],
+      }],
+    }, "adoring")).toEqual({
+      word: "adoring",
+      meaning: "Showing adoration or admiration.",
+      example: "The adoring moment passed.",
+    });
+  });
+
+  it("recognizes only one simple Latin-script word for a direct dictionary attempt", () => {
+    expect(isOrdinaryEnglishDictionaryWord("adore")).toBe(true);
+    expect(isOrdinaryEnglishDictionaryWord("adoring")).toBe(true);
+    expect(isOrdinaryEnglishDictionaryWord("in the mood for love")).toBe(false);
+    expect(isOrdinaryEnglishDictionaryWord("bonjour")).toBe(true);
+    expect(isOrdinaryEnglishDictionaryWord("你好")).toBe(false);
   });
 
   it("renders and parses the established three-column Markdown table", () => {
