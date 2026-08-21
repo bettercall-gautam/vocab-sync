@@ -117,8 +117,8 @@ export function hasDriveConflict(
 // vocabulary notes. These durable models are free and support structured outputs.
 // The first model is tuned for lower-latency inference; the second is a free backup.
 export const freeModelFallbacks = [
-  "openai/gpt-oss-20b:free",
   "nvidia/nemotron-3-super-120b-a12b:free",
+  "openai/gpt-oss-20b:free",
 ] as const;
 
 export const openRouterModelsPerRequestLimit = 3;

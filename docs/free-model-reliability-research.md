@@ -36,6 +36,10 @@ OpenRouter documents a free Response Healing plugin for non-streaming structured
 
 The selected production strategy uses `openai/gpt-oss-20b:free` as the primary and `nvidia/nemotron-3-super-120b-a12b:free` as its sole durable fallback. Both are currently zero-cost and advertise structured-output support. The temporary lowest-latency Nano candidate is intentionally excluded because its current catalog expiration is 2026-08-24; the Dots candidate is likewise a preview expiring on 2026-09-30. The request preserves model priority, asks each eligible model for low-effort reasoning only, limits completion tokens for the tiny task, uses free Response Healing, and clamps rare overlong text locally instead of spending another full generation request. This is a deliberate speed and consistency tradeoff: it is not a guarantee against the availability limits inherent to free endpoints.
 
+### Latency follow-up
+
+The live latency-sorted zero-cost structured-output catalog ranks durable `nvidia/nemotron-3-super-120b-a12b:free` ahead of `openai/gpt-oss-20b:free`. The current priority order therefore optimizes documented JSON quality before speed. The owner’s eight successful responses out of nine confirm the strategy is broadly functional, but the reported latency makes that tradeoff wrong for this one-word tool. The next measured change should reverse only these two stable models, retaining the same schema, free Response Healing, local concision, and free-only safety guard. The attached five-model error is from an earlier build and cannot be attributed to the verified two-model asset.
+
 ## Sources
 
 [1] [OpenRouter live model catalog](https://openrouter.ai/api/v1/models)

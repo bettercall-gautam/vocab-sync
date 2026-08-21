@@ -74,8 +74,8 @@ describe("vocabulary helpers", () => {
     expect(freeModelFallbacks.every(isFreeOnlyModel)).toBe(true);
     expect(freeModelFallbacks).not.toContain("openrouter/free");
     expect(freeModelFallbacks).toEqual([
-      "openai/gpt-oss-20b:free",
       "nvidia/nemotron-3-super-120b-a12b:free",
+      "openai/gpt-oss-20b:free",
     ]);
     expect(isFreeOnlyModel("paid/provider-model")).toBe(false);
   });

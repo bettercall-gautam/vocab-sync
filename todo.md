@@ -92,4 +92,7 @@
 - [x] Recover automatically from empty free-model responses and optimize the one-word generation fast path without allowing paid-model fallback.
 - [x] Publish the empty-output recovery and speed tuning update and confirm GitHub Pages workflow 32443197752 succeeds.
 - [x] Research the live OpenRouter free-model catalog and replace the current slow and fragile routing strategy with the best evidence-based free-only option for concise vocabulary generation.
-- [ ] Publish the selected two-model free-only strategy and confirm two consecutive owner-device vocabulary generations complete reliably.
+- [x] Publish the selected two-model free-only strategy and confirm GitHub Pages workflow 32443965871 succeeds.
+- [ ] Confirm two consecutive owner-device vocabulary generations complete reliably with the selected strategy.
+- [x] Verify current deployed-model evidence and diagnose the remaining generation latency before making another measured free-only change.
+- [ ] Publish the durable low-latency model-priority reversal and validate the current production bundle on the owner’s device.
