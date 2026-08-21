@@ -1055,13 +1055,13 @@ export default function Home() {
                 <section className="rounded-3xl bg-[#183e66] p-5 text-[#f8f4ea] shadow-[0_18px_38px_rgba(24,62,102,0.18)]">
                   <div className="flex items-center justify-between"><span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[#b7d9d6]">Destination</span><FileText size={17} className="text-[#b7d9d6]" /></div>
                   <p className="mt-4 truncate font-display text-xl font-semibold">{selectedFile?.name ?? rememberedDestination?.name ?? "No file selected"}</p>
-                  <p className="mt-2 text-xs leading-5 text-[#c5d5e1]">{selectedFile ? `Last loaded ${new Date(selectedFile.modifiedTime).toLocaleString()}` : rememberedDestination ? "Tap Resume to reload this file from Drive." : "Choose vocab.md from The Shelf after connecting Drive."}</p>
-                  <Button variant="secondary" onClick={pickMarkdownFile} className="mt-5 h-10 w-full rounded-xl bg-[#f0eee6] text-xs font-bold text-[#183e66] hover:bg-white"><FolderOpen size={15} className="mr-2" /> Choose Markdown file</Button>
+                  <p className="mt-2 text-xs leading-5 text-[#c5d5e1]">{selectedFile ? `Last loaded ${new Date(selectedFile.modifiedTime).toLocaleString()}` : rememberedDestination ? "Tap Resume to reload this file from Drive." : connectionReady ? "Choose vocab.md from The Shelf to start syncing." : "Connect Drive first, then choose vocab.md from The Shelf."}</p>
+                  <Button variant="secondary" onClick={connectionReady ? pickMarkdownFile : connectGoogleDrive} className="mt-5 h-10 w-full rounded-xl bg-[#f0eee6] text-xs font-bold text-[#183e66] hover:bg-white"><FolderOpen size={15} className="mr-2" /> {connectionReady ? "Choose Markdown file" : "Connect Drive first"}</Button>
                 </section>
 
                 <section className="rounded-3xl border border-[#ddd6c8] bg-[#fffdf8] p-5 shadow-[0_12px_30px_rgba(44,57,78,0.04)]">
                   <div className="flex items-center justify-between"><div className="flex items-center gap-2 text-[#7357a4]"><RefreshCw size={16} /><span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em]">Safe sync</span></div><span className="rounded-full bg-[#f2edf8] px-2 py-1 font-mono text-[9px] font-bold text-[#7357a4]">MANUAL</span></div>
-                  <p className="mt-3 text-sm leading-6 text-[#576a80]">Every sync checks whether the file changed in Obsidian or Drive. If it did, Vocab Sync blocks the overwrite.</p>
+                  <p className="mt-3 text-sm leading-6 text-[#576a80]">{selectedFile ? "Every sync checks whether the file changed in Obsidian or Drive. If it did, Vocab Sync blocks the overwrite." : "Connect Drive and choose vocab.md before syncing. Your drafts stay safely in this browser until then."}</p>
                   <Button onClick={syncToDrive} disabled={syncing || !hasSyncableChanges || !isOnline} className="mt-5 h-11 w-full rounded-xl bg-[#22716d] text-xs font-bold text-white hover:bg-[#195b58]">
                     {syncing ? <LoaderCircle size={15} className="mr-2 animate-spin" /> : <Upload size={15} className="mr-2" />} {syncing ? "Checking and syncing" : "Sync to Drive"}
                   </Button>

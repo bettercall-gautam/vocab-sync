@@ -41,13 +41,13 @@ export default function ReviewWorkspace({ queueLength, syncStatus, entry, direct
                   <p className="mt-4 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#7357a4]">Example</p>
                   <p className="mt-2 text-sm leading-6 text-[#5a6e85]">{entry.example}</p>
                 </div>
-                <p className="mt-5 text-center text-xs text-[#718198]">How well did you remember it?</p>
+                <p className="mt-5 text-center text-xs text-[#718198]">Pick what felt true. This only decides when the word returns.</p>
                 <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {([
-                    ["again", "Again", "bg-[#9d4b45] hover:bg-[#833d39]"],
-                    ["hard", "Hard", "bg-[#b77b2a] hover:bg-[#9b6620]"],
-                    ["good", "Good", "bg-[#22716d] hover:bg-[#195b58]"],
-                    ["easy", "Easy", "bg-[#183e66] hover:bg-[#123454]"],
+                    ["again", "Forgot it", "bg-[#9d4b45] hover:bg-[#833d39]"],
+                    ["hard", "Took effort", "bg-[#b77b2a] hover:bg-[#9b6620]"],
+                    ["good", "Remembered", "bg-[#22716d] hover:bg-[#195b58]"],
+                    ["easy", "Knew instantly", "bg-[#183e66] hover:bg-[#123454]"],
                   ] as const).map(([rating, label, className]) => (
                     <Button key={rating} onClick={() => onRate(rating)} className={`h-11 rounded-xl text-xs font-bold ${className}`}>{label}</Button>
                   ))}

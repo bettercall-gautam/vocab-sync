@@ -141,4 +141,7 @@
 - [x] Add a gentle five-word review ramp and bidirectional word-to-meaning or meaning-to-word recall.
 - [x] Split the workspace into lazy-loaded Capture, Review, and Library code paths, then measure the production bundle before and after.
 - [x] Add conflict-safe cross-device review metadata sync without changing the existing `vocab.md` format.
-- [ ] Test, publish, and obtain owner-device validation for the approved A through D release; experimental encounter, sentence, confusion-pair, and reading-trail ideas remain out of scope.
+- [ ] Obtain owner-device validation for the published A through D release; GitHub Pages workflow 32475113290 succeeded, while experimental encounter, sentence, confusion-pair, and reading-trail ideas remain out of scope.
+- [x] Replace `Again`, `Hard`, `Good`, and `Easy` with plain-language review choices that preserve the current scheduling behavior.
+- [ ] Publish and verify the plain-language review-rating update on the owner’s device.
+- [x] Conduct a final focused UX pass and implement only clear, low-risk usability or mobile-flow refinements alongside the plain-language review ratings.
