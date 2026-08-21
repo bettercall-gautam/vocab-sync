@@ -238,9 +238,9 @@ function conciseFailureReason(error: unknown): string {
 }
 
 /**
- * Sends explicit free-only model fallbacks in OpenRouter-compatible groups. OpenRouter
- * accepts at most three models per request, so later groups are attempted only after
- * a retryable failure has exhausted the preceding group.
+ * Sends one explicit free-only model at a time. A malformed or empty successful HTTP
+ * response is model-specific, so the next verified free model is tried immediately
+ * instead of repeating the same broken output format.
  */
 export async function requestWithFreeModelRouter<T>(
   request: (models: readonly string[]) => Promise<T>,
@@ -252,13 +252,11 @@ export async function requestWithFreeModelRouter<T>(
 
   let lastError: unknown;
   let attempts = 0;
-  const groups = groupFreeModelsForOpenRouter(candidates);
-
-  for (const group of groups) {
+  for (const model of candidates) {
     for (let retry = 0; retry <= 1; retry += 1) {
       attempts += 1;
       try {
-        return { value: await request(group), attempts, candidates };
+        return { value: await request([model]), attempts, candidates };
       } catch (error) {
         lastError = error;
         if (!isRetryableFreeModelFailure(error)) {
@@ -266,7 +264,8 @@ export async function requestWithFreeModelRouter<T>(
             `Free generation could not run after ${candidates.length} verified free models. ${conciseFailureReason(error)}. Your words are still safe.`,
           );
         }
-        if (retry === 0 && retryDelayMs > 0 && !shouldRetryWithoutDelay(error)) {
+        if (shouldRetryWithoutDelay(error)) break;
+        if (retry === 0 && retryDelayMs > 0) {
           await new Promise(resolve => setTimeout(resolve, retryDelayMs));
         }
       }
@@ -274,7 +273,7 @@ export async function requestWithFreeModelRouter<T>(
   }
 
   throw new Error(
-    `Free generation could not run after ${candidates.length} verified free models in ${groups.length} compatible group${groups.length === 1 ? "" : "s"}. ${conciseFailureReason(lastError)}. Your words are still safe.`,
+    `Free generation could not run after ${candidates.length} verified free models. ${conciseFailureReason(lastError)}. Your words are still safe.`,
   );
 }
 

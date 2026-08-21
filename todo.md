@@ -95,4 +95,8 @@
 - [x] Publish the selected two-model free-only strategy and confirm GitHub Pages workflow 32443965871 succeeds.
 - [ ] Confirm two consecutive owner-device vocabulary generations complete reliably with the selected strategy.
 - [x] Verify current deployed-model evidence and diagnose the remaining generation latency before making another measured free-only change.
-- [ ] Publish the durable low-latency model-priority reversal and validate the current production bundle on the owner’s device.
+- [x] Publish the durable low-latency model-priority reversal and confirm GitHub Pages workflow 32444612825 succeeds.
+- [ ] Validate the current production bundle and its generation responsiveness on the owner’s device.
+- [x] Check the authorized browser for a nonempty saved OpenRouter key without reading it; this sandbox browser has no such key, so no live request could be run here.
+- [x] Replace the brittle strict-JSON response contract because the current two free models can both return malformed output despite schema enforcement and response healing.
+- [ ] Publish the tolerant JSON-object response contract and verify two consecutive owner-device generations complete successfully.

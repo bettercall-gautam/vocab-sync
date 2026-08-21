@@ -462,31 +462,7 @@ export default function Home() {
               },
             ],
             response_format: {
-              type: "json_schema",
-              json_schema: {
-                name: "vocabulary_entries",
-                strict: true,
-                schema: {
-                  type: "object",
-                  properties: {
-                    entries: {
-                      type: "array",
-                      items: {
-                        type: "object",
-                        properties: {
-                          word: { type: "string", description: "The requested word or phrase." },
-                          meaning: { type: "string", description: "A direct simple meaning of at most eight words." },
-                          example: { type: "string", description: "A natural example sentence of at most ten words." },
-                        },
-                        required: ["word", "meaning", "example"],
-                        additionalProperties: false,
-                      },
-                    },
-                  },
-                  required: ["entries"],
-                  additionalProperties: false,
-                },
-              },
+              type: "json_object",
             },
             provider: {
               allow_fallbacks: true,
