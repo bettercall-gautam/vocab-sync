@@ -146,3 +146,6 @@
 - [ ] Verify the plain-language review-rating update on the owner’s device; GitHub Pages workflow 32476089219 succeeded.
 - [x] Conduct a final focused UX pass and implement only clear, low-risk usability or mobile-flow refinements alongside the plain-language review ratings.
 - [x] Add an installable Vocab Sync home-screen experience with a branded app icon and document the boundary between a PWA shortcut and a true native widget.
+- [x] Curate an icon direction from a Watchlist writing-scene reference, then replace the blurred PWA launch icon with a high-resolution final asset selected or supplied by the owner. Superseded by the owner-approved reading-scene direction.
+- [x] Research and rank book, diary, note, or journal reading scenes from the Watchlist, including Hank Schrader’s Breaking Bad reveal, before choosing an icon direction.
+- [x] Replace the PWA launch and home-screen icons with the owner-selected Gene/Saul reading image, using crisp square 192px and 512px assets.

@@ -21,17 +21,17 @@ describe("PWA home-screen assets", () => {
       theme_color: "#183e66",
     });
     expect(manifest.icons).toContainEqual(expect.objectContaining({
-      src: "vocab-sync-icon-192.png",
+      src: "icons/vocab-sync-icon-192.png",
       sizes: "192x192",
     }));
     expect(manifest.icons).toContainEqual(expect.objectContaining({
-      src: "vocab-sync-icon-512.png",
+      src: "icons/vocab-sync-icon-512.png",
       sizes: "512x512",
       purpose: "any maskable",
     }));
     expect(readFileSync(resolve(publicDirectory, "vocab-sync-icon.svg"), "utf8")).toContain("<svg");
-    expect(readFileSync(resolve(publicDirectory, "vocab-sync-icon-192.png")).byteLength).toBeGreaterThan(0);
-    expect(readFileSync(resolve(publicDirectory, "vocab-sync-icon-512.png")).byteLength).toBeGreaterThan(0);
+    expect(readFileSync(resolve(publicDirectory, "icons/vocab-sync-icon-192.png")).byteLength).toBeGreaterThan(0);
+    expect(readFileSync(resolve(publicDirectory, "icons/vocab-sync-icon-512.png")).byteLength).toBeGreaterThan(0);
   });
 
   it("uses a non-caching service worker so new GitHub Pages releases stay fresh", () => {

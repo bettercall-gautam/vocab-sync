@@ -16,3 +16,5 @@ On Android, open Vocab Sync in Chrome or another compatible browser, then choose
 ## Validation record
 
 The implementation was checked locally with the full Vitest suite, TypeScript validation, a static production build, direct verification that the manifest, service worker, and both PNG icons were emitted, and responsive screenshots at desktop and 375 px mobile widths. The dedicated PWA asset tests protect the manifest values, icon declarations, and update-safe service-worker behavior.
+
+The home-screen icon was later updated to the owner-selected Gene/Saul reading image. The 512 px source was visually checked for sharp focus, central subject placement, and a readable open book. Its 192 px variant was also checked at actual icon dimensions: the face, glasses, book, and high-contrast reading pose remain identifiable without the blur seen in the prior launch icon.
