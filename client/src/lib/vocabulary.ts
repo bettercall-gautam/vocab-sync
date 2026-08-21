@@ -123,8 +123,25 @@ export const freeModelFallbacks = [
   "nvidia/nemotron-3-super-120b-a12b:free",
 ] as const;
 
+export const openRouterModelsPerRequestLimit = 3;
+
 export function isFreeOnlyModel(model: string): boolean {
   return model === "openrouter/free" || model.endsWith(":free");
+}
+
+export function groupFreeModelsForOpenRouter(
+  models: readonly string[],
+  maximumPerRequest = openRouterModelsPerRequestLimit,
+): string[][] {
+  if (!Number.isInteger(maximumPerRequest) || maximumPerRequest < 1) {
+    throw new Error("OpenRouter model group size must be at least one.");
+  }
+
+  const groups: string[][] = [];
+  for (let index = 0; index < models.length; index += maximumPerRequest) {
+    groups.push(models.slice(index, index + maximumPerRequest));
+  }
+  return groups;
 }
 
 /**
@@ -202,9 +219,9 @@ function conciseFailureReason(error: unknown): string {
 }
 
 /**
- * Sends one request with explicit free-only model fallbacks. OpenRouter can pick the
- * fastest compatible free endpoint, avoiding a slow sequence of browser-side requests.
- * A single short retry is reserved for transient capacity and network errors.
+ * Sends explicit free-only model fallbacks in OpenRouter-compatible groups. OpenRouter
+ * accepts at most three models per request, so later groups are attempted only after
+ * a retryable failure has exhausted the preceding group.
  */
 export async function requestWithFreeModelRouter<T>(
   request: (models: readonly string[]) => Promise<T>,
@@ -215,18 +232,30 @@ export async function requestWithFreeModelRouter<T>(
   if (!candidates.length) throw new Error("No free model candidates are configured.");
 
   let lastError: unknown;
-  for (let attempt = 1; attempt <= 2; attempt += 1) {
-    try {
-      return { value: await request(candidates), attempts: attempt, candidates };
-    } catch (error) {
-      lastError = error;
-      if (attempt === 2 || !isRetryableFreeModelFailure(error)) break;
-      if (retryDelayMs > 0) await new Promise(resolve => window.setTimeout(resolve, retryDelayMs));
+  let attempts = 0;
+  const groups = groupFreeModelsForOpenRouter(candidates);
+
+  for (const group of groups) {
+    for (let retry = 0; retry <= 1; retry += 1) {
+      attempts += 1;
+      try {
+        return { value: await request(group), attempts, candidates };
+      } catch (error) {
+        lastError = error;
+        if (!isRetryableFreeModelFailure(error)) {
+          throw new Error(
+            `Free generation could not run after ${candidates.length} verified free models. ${conciseFailureReason(error)}. Your words are still safe.`,
+          );
+        }
+        if (retry === 0 && retryDelayMs > 0) {
+          await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+        }
+      }
     }
   }
 
   throw new Error(
-    `Free generation could not run after ${candidates.length} verified free models. ${conciseFailureReason(lastError)}. Your words are still safe.`,
+    `Free generation could not run after ${candidates.length} verified free models in ${groups.length} compatible group${groups.length === 1 ? "" : "s"}. ${conciseFailureReason(lastError)}. Your words are still safe.`,
   );
 }
 

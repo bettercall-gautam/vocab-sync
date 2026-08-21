@@ -85,4 +85,6 @@
 - [x] Publish the verified free-model routing update to GitHub Pages and confirm the deployment workflow succeeds.
 - [ ] Validate a live generation request in the owner’s browser where the user-managed OpenRouter key is stored.
 - [x] Diagnose and harden the OpenRouter request path for the reported 401: verified the deployed header source, normalize pasted key formats, use OpenRouter’s documented title header, and show precise 401 recovery guidance.
-- [ ] Publish the OpenRouter 401 handling update and retest generation on the owner’s browser.
+- [x] Publish the OpenRouter 401 handling update and confirm GitHub Pages workflow 32442137047 succeeds.
+- [x] Correct the OpenRouter free-model router to respect the API maximum of three model IDs per request while retaining five verified free candidates.
+- [ ] Publish the compatible-model batching update and confirm owner-device generation succeeds.
