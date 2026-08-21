@@ -116,10 +116,10 @@ export function hasDriveConflict(
 // Verified against OpenRouter's public catalog on 2026-08-20. Every model is free
 // and advertises structured-output support, unlike the previous generic router chain.
 export const freeModelFallbacks = [
-  "google/gemma-4-26b-a4b-it:free",
-  "openai/gpt-oss-20b:free",
-  "z-ai/glm-5.2:free",
   "liquid/lfm-2.5-2.6b:free",
+  "openai/gpt-oss-20b:free",
+  "google/gemma-4-26b-a4b-it:free",
+  "z-ai/glm-5.2:free",
   "nvidia/nemotron-3-super-120b-a12b:free",
 ] as const;
 
@@ -210,7 +210,12 @@ export type FreeModelRouterResult<T> = {
 
 function isRetryableFreeModelFailure(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
-  return /\b(408|409|425|429|500|502|503|504)\b|network|timeout|temporar|busy|overload|not valid json|usable vocabulary|did not return every requested word/i.test(message);
+  return /\b(408|409|425|429|500|502|503|504)\b|network|timeout|temporar|busy|overload|empty|not valid json|did not contain vocabulary|usable vocabulary|did not return every requested word/i.test(message);
+}
+
+function shouldRetryWithoutDelay(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /empty|not valid json|did not contain vocabulary|usable vocabulary/i.test(message);
 }
 
 function conciseFailureReason(error: unknown): string {
@@ -247,7 +252,7 @@ export async function requestWithFreeModelRouter<T>(
             `Free generation could not run after ${candidates.length} verified free models. ${conciseFailureReason(error)}. Your words are still safe.`,
           );
         }
-        if (retry === 0 && retryDelayMs > 0) {
+        if (retry === 0 && retryDelayMs > 0 && !shouldRetryWithoutDelay(error)) {
           await new Promise(resolve => setTimeout(resolve, retryDelayMs));
         }
       }

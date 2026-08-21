@@ -87,4 +87,7 @@
 - [x] Diagnose and harden the OpenRouter request path for the reported 401: verified the deployed header source, normalize pasted key formats, use OpenRouter’s documented title header, and show precise 401 recovery guidance.
 - [x] Publish the OpenRouter 401 handling update and confirm GitHub Pages workflow 32442137047 succeeds.
 - [x] Correct the OpenRouter free-model router to respect the API maximum of three model IDs per request while retaining five verified free candidates.
-- [ ] Publish the compatible-model batching update and confirm owner-device generation succeeds.
+- [x] Publish the compatible-model batching update and confirm GitHub Pages workflow 32442486439 succeeds.
+- [x] Verify the current GitHub Pages bundle contains compatible three-model batching and guide the owner to the exact cache-busting Vocab Sync URL before retesting generation.
+- [x] Recover automatically from empty free-model responses and optimize the one-word generation fast path without allowing paid-model fallback.
+- [ ] Publish the empty-output recovery and speed tuning update, then verify a fast successful owner-device generation.

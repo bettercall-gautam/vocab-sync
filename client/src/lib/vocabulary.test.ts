@@ -72,6 +72,11 @@ describe("vocabulary helpers", () => {
     expect(freeModelFallbacks).toHaveLength(5);
     expect(freeModelFallbacks.every(isFreeOnlyModel)).toBe(true);
     expect(freeModelFallbacks).not.toContain("openrouter/free");
+    expect(freeModelFallbacks.slice(0, 3)).toEqual([
+      "liquid/lfm-2.5-2.6b:free",
+      "openai/gpt-oss-20b:free",
+      "google/gemma-4-26b-a4b-it:free",
+    ]);
     expect(freeModelFallbacks).toContain("google/gemma-4-26b-a4b-it:free");
     expect(freeModelFallbacks).toContain("openai/gpt-oss-20b:free");
     expect(isFreeOnlyModel("paid/provider-model")).toBe(false);
@@ -142,6 +147,26 @@ describe("vocabulary helpers", () => {
 
     expect(result.value).toBe("repaired");
     expect(result.attempts).toBe(2);
+  });
+
+  it("retries an empty model response and advances to the next free-only group if needed", async () => {
+    const calls: string[][] = [];
+    const result = await requestWithFreeModelRouter(
+      async models => {
+        calls.push([...models]);
+        if (models.includes("first:free")) throw new Error("Model response was empty.");
+        return "recovered";
+      },
+      ["first:free", "second:free", "third:free", "fourth:free"],
+      0,
+    );
+
+    expect(result.value).toBe("recovered");
+    expect(calls).toEqual([
+      ["first:free", "second:free", "third:free"],
+      ["first:free", "second:free", "third:free"],
+      ["fourth:free"],
+    ]);
   });
 
   it("keeps an authentication failure specific instead of wasting a retry", async () => {
