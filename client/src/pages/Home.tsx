@@ -707,7 +707,7 @@ export default function Home() {
                     <div>
                       <div className="flex items-center gap-2 text-[#22716d]"><Sparkles size={16} /><span className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em]">Fast and free</span></div>
                       <h2 className="mt-3 font-display text-2xl font-semibold tracking-[-0.025em]">Drop in the words you met today.</h2>
-                      <p className="mt-2 max-w-xl text-sm leading-6 text-[#617087]">Paste words, phrases, or a messy comma separated list. Use Instant Dictionary for one quick English word, or AI for richer notes and phrases.</p>
+                      <p className="mt-2 max-w-xl text-sm leading-6 text-[#617087]">Paste words, phrases, or a messy comma separated list. Instant Dictionary handles one quick English word, while AI handles phrases and richer notes.</p>
                     </div>
                     <span className="rounded-full bg-[#edf3f7] px-3 py-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-[#4e637b]">{wordsReady.length} ready</span>
                   </div>
@@ -719,13 +719,13 @@ export default function Home() {
                   />
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                     <p className="text-xs text-[#77869a]">Duplicates are removed before generation. Nothing is sent to Drive automatically.</p>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" onClick={addManualEntry} disabled={generating || dictionaryLookingUp} className="h-10 rounded-xl px-3 text-xs font-semibold text-[#42607a] hover:bg-[#edf3f7]"><Plus size={15} className="mr-1.5" /> Manual entry</Button>
-                      <Button variant="outline" onClick={lookUpInstantDictionary} disabled={generating || dictionaryLookingUp || wordsReady.length !== 1 || /\s/.test(wordsReady[0] ?? "") || !isOnline} className="h-10 rounded-xl border-[#bad4d0] bg-[#f5fbfa] px-3 text-xs font-semibold text-[#22716d] hover:bg-[#e6f4f1]">
+                    <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
+                      <Button variant="ghost" onClick={addManualEntry} disabled={generating || dictionaryLookingUp} className="h-10 w-full rounded-xl px-2 text-xs font-semibold text-[#42607a] hover:bg-[#edf3f7] sm:w-auto sm:px-3"><Plus size={15} className="mr-1.5" /> Manual entry</Button>
+                      <Button variant="outline" onClick={lookUpInstantDictionary} disabled={generating || dictionaryLookingUp || wordsReady.length !== 1 || /\s/.test(wordsReady[0] ?? "") || !isOnline} className="h-10 w-full rounded-xl border-[#bad4d0] bg-[#f5fbfa] px-2 text-xs font-semibold text-[#22716d] hover:bg-[#e6f4f1] sm:w-auto sm:px-3">
                         {dictionaryLookingUp ? <LoaderCircle size={15} className="mr-2 animate-spin" /> : <BookOpen size={15} className="mr-2" />}
                         Instant dictionary
                       </Button>
-                      <Button onClick={generateEntries} disabled={generating || dictionaryLookingUp || !wordsReady.length || !isOnline} className="h-10 rounded-xl bg-[#183e66] px-4 text-xs font-semibold text-white hover:bg-[#123454]">
+                      <Button onClick={generateEntries} disabled={generating || dictionaryLookingUp || !wordsReady.length || !isOnline} className="col-span-2 h-10 w-full rounded-xl bg-[#183e66] px-4 text-xs font-semibold text-white hover:bg-[#123454] sm:col-auto sm:w-auto">
                         {generating ? <LoaderCircle size={15} className="mr-2 animate-spin" /> : <Sparkles size={15} className="mr-2" />}
                         Generate drafts
                       </Button>
