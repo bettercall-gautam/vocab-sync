@@ -108,4 +108,8 @@
 - [x] Publish the Instant Dictionary fallback and confirm GitHub Pages workflow 32446511699 succeeds.
 - [ ] Validate the Instant Dictionary fallback on the owner’s device without an OpenRouter request.
 - [x] Fix the mobile capture layout so Manual entry, Instant Dictionary, and AI generation remain distinct, visible, and easy to tap.
-- [ ] Publish the responsive three-action controls and confirm them on the owner’s phone.
+- [x] Publish the responsive three-action controls and confirm GitHub Pages workflow 32446951064 succeeds.
+- [ ] Confirm the three visible capture choices on the owner’s phone.
+- [x] Redesign the capture workflow into explicit Manual, Dictionary, and AI modes so the user always knows which path is active.
+- [x] Implement automatic AI fallback when the Instant Dictionary cannot find a word, showing an error popup only if both fail.
+- [ ] Publish the explicit three-mode UX and verify Dictionary-to-AI fallback on the owner’s device.

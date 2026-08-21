@@ -59,6 +59,8 @@ type DriveConnection = {
   expiresAt: number;
 };
 
+type CaptureMode = "manual" | "dictionary" | "ai";
+
 type SelectedFile = {
   id: string;
   name: string;
@@ -121,6 +123,7 @@ export default function Home() {
   const [syncing, setSyncing] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [dictionaryLookingUp, setDictionaryLookingUp] = useState(false);
+  const [captureMode, setCaptureMode] = useState<CaptureMode>("ai");
   const [setupExpanded, setSetupExpanded] = useState(false);
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
 
@@ -398,7 +401,10 @@ export default function Home() {
   }
 
   function addManualEntry() {
-    setDrafts(current => [...current, createEntry()]);
+    const manualEntries = wordsReady.length ? wordsReady.map(word => createEntry(word)) : [createEntry()];
+    setDrafts(current => [...current, ...manualEntries]);
+    setRawWords("");
+    toast.success(`${manualEntries.length} editable manual draft${manualEntries.length === 1 ? "" : "s"} added.`);
   }
 
   function updateDraft(id: string, field: keyof Pick<VocabularyEntry, "word" | "meaning" | "example">, value: string) {
@@ -526,13 +532,18 @@ export default function Home() {
     }
   }
 
-  async function lookUpInstantDictionary() {
+  async function lookUpInstantDictionary(fallbackToAi = true) {
     if (!isOnline) {
       toast.error("You are offline. Reconnect before using the instant dictionary.");
       return;
     }
     if (wordsReady.length !== 1 || /\s/.test(wordsReady[0] ?? "")) {
-      toast.error("Instant Dictionary is for one ordinary English word. Use AI generation for phrases or a batch.");
+      if (fallbackToAi) {
+        toast.message("Dictionary mode supports one word, so AI will handle this phrase or batch.");
+        await generateEntries();
+      } else {
+        toast.error("Dictionary mode supports one ordinary English word. Use AI mode for phrases or a batch.");
+      }
       return;
     }
 
@@ -540,9 +551,7 @@ export default function Home() {
     setDictionaryLookingUp(true);
     try {
       const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
-      if (!response.ok) {
-        throw new Error("The instant dictionary could not find this word. Try AI generation or add it manually.");
-      }
+      if (!response.ok) throw new Error("dictionary_miss");
       const dictionaryEntry = parseInstantDictionaryEntry(await response.json(), word);
       const { entries, duplicates } = mergeVocabularyEntries([...library, ...drafts], [
         createEntry(dictionaryEntry.word, dictionaryEntry.meaning, dictionaryEntry.example),
@@ -555,12 +564,29 @@ export default function Home() {
       setDrafts(current => [...current, ...fresh]);
       setRawWords("");
       if (duplicates.length) toast.message(`${duplicates.length} duplicate word was skipped.`);
-      toast.success("Instant dictionary draft added. No AI key or daily AI quota was used.");
+      toast.success("Dictionary draft added. No AI key or daily AI quota was used.");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "The instant dictionary could not be reached. Try again or add a manual draft.");
+      if (fallbackToAi) {
+        toast.message("Dictionary did not find that word. Trying AI now.");
+        await generateEntries();
+      } else {
+        throw error;
+      }
     } finally {
       setDictionaryLookingUp(false);
     }
+  }
+
+  async function runSelectedCaptureMode() {
+    if (captureMode === "manual") {
+      addManualEntry();
+      return;
+    }
+    if (captureMode === "dictionary") {
+      await lookUpInstantDictionary(true);
+      return;
+    }
+    await generateEntries();
   }
 
   async function syncToDrive() {
@@ -705,9 +731,9 @@ export default function Home() {
                 <div className="rounded-3xl border border-[#ddd6c8] bg-[#fffdf8]/95 p-5 shadow-[0_18px_50px_rgba(44,57,78,0.06)] sm:p-7">
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
-                      <div className="flex items-center gap-2 text-[#22716d]"><Sparkles size={16} /><span className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em]">Fast and free</span></div>
+                      <div className="flex items-center gap-2 text-[#22716d]"><Sparkles size={16} /><span className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em]">Choose your method</span></div>
                       <h2 className="mt-3 font-display text-2xl font-semibold tracking-[-0.025em]">Drop in the words you met today.</h2>
-                      <p className="mt-2 max-w-xl text-sm leading-6 text-[#617087]">Paste words, phrases, or a messy comma separated list. Instant Dictionary handles one quick English word, while AI handles phrases and richer notes.</p>
+                      <p className="mt-2 max-w-xl text-sm leading-6 text-[#617087]">Choose exactly how this input becomes a draft. Dictionary mode tries the dictionary first, then AI only when the dictionary cannot help.</p>
                     </div>
                     <span className="rounded-full bg-[#edf3f7] px-3 py-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-[#4e637b]">{wordsReady.length} ready</span>
                   </div>
@@ -717,19 +743,34 @@ export default function Home() {
                     placeholder={"serenity\nepiphany, grit\nword or phrase"}
                     className="mt-6 min-h-[176px] resize-y rounded-2xl border-[#d9d4c8] bg-[#faf8f1] p-4 font-mono text-sm leading-6 shadow-none focus-visible:ring-[#3b768b]"
                   />
-                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-xs text-[#77869a]">Duplicates are removed before generation. Nothing is sent to Drive automatically.</p>
-                    <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
-                      <Button variant="ghost" onClick={addManualEntry} disabled={generating || dictionaryLookingUp} className="h-10 w-full rounded-xl px-2 text-xs font-semibold text-[#42607a] hover:bg-[#edf3f7] sm:w-auto sm:px-3"><Plus size={15} className="mr-1.5" /> Manual entry</Button>
-                      <Button variant="outline" onClick={lookUpInstantDictionary} disabled={generating || dictionaryLookingUp || wordsReady.length !== 1 || /\s/.test(wordsReady[0] ?? "") || !isOnline} className="h-10 w-full rounded-xl border-[#bad4d0] bg-[#f5fbfa] px-2 text-xs font-semibold text-[#22716d] hover:bg-[#e6f4f1] sm:w-auto sm:px-3">
-                        {dictionaryLookingUp ? <LoaderCircle size={15} className="mr-2 animate-spin" /> : <BookOpen size={15} className="mr-2" />}
-                        Instant dictionary
-                      </Button>
-                      <Button onClick={generateEntries} disabled={generating || dictionaryLookingUp || !wordsReady.length || !isOnline} className="col-span-2 h-10 w-full rounded-xl bg-[#183e66] px-4 text-xs font-semibold text-white hover:bg-[#123454] sm:col-auto sm:w-auto">
-                        {generating ? <LoaderCircle size={15} className="mr-2 animate-spin" /> : <Sparkles size={15} className="mr-2" />}
-                        Generate drafts
-                      </Button>
-                    </div>
+                  <div className="mt-5 grid gap-2 sm:grid-cols-3">
+                    {([
+                      { id: "manual" as const, label: "Manual", detail: "Edit every field yourself", icon: Plus },
+                      { id: "dictionary" as const, label: "Dictionary", detail: "Dictionary first, AI backup", icon: BookOpen },
+                      { id: "ai" as const, label: "AI", detail: "Free AI for words or phrases", icon: Sparkles },
+                    ]).map(mode => {
+                      const Icon = mode.icon;
+                      const active = captureMode === mode.id;
+                      return (
+                        <button
+                          key={mode.id}
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() => setCaptureMode(mode.id)}
+                          className={`rounded-2xl border p-3 text-left transition-colors ${active ? "border-[#22716d] bg-[#e8f5f1] text-[#174f51] shadow-sm" : "border-[#ddd6c8] bg-[#fffdf8] text-[#52657c] hover:border-[#9bc9c0] hover:bg-[#f7fbf9]"}`}
+                        >
+                          <span className="flex items-center gap-2 text-sm font-bold"><Icon size={16} /> {mode.label}</span>
+                          <span className="mt-1 block text-[11px] leading-4 opacity-80">{mode.detail}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-xs text-[#77869a]">{captureMode === "manual" ? "Creates editable blank fields, prefilled with your words." : captureMode === "dictionary" ? "Tries Dictionary first, then AI if the word is not found." : "Uses only the configured free OpenRouter models."}</p>
+                    <Button onClick={() => void runSelectedCaptureMode()} disabled={generating || dictionaryLookingUp || (captureMode !== "manual" && !isOnline) || (captureMode !== "manual" && !wordsReady.length)} className={`h-11 w-full rounded-xl px-4 text-xs font-bold sm:w-auto ${captureMode === "manual" ? "bg-[#7357a4] hover:bg-[#60488f]" : captureMode === "dictionary" ? "bg-[#22716d] hover:bg-[#195b58]" : "bg-[#183e66] hover:bg-[#123454]"}`}>
+                      {generating || dictionaryLookingUp ? <LoaderCircle size={15} className="mr-2 animate-spin" /> : captureMode === "manual" ? <Plus size={15} className="mr-2" /> : captureMode === "dictionary" ? <BookOpen size={15} className="mr-2" /> : <Sparkles size={15} className="mr-2" />}
+                      {captureMode === "manual" ? "Add manual draft" : captureMode === "dictionary" ? "Lookup then add draft" : "Generate with AI"}
+                    </Button>
                   </div>
                 </div>
 
@@ -786,7 +827,7 @@ export default function Home() {
 
                 <section className="rounded-3xl border border-[#e4d8bd] bg-[#fff7e3] p-5">
                   <div className="flex items-center gap-2 text-[#9a6c13]"><TriangleAlert size={16} /><span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em]">Free tier rule</span></div>
-                  <p className="mt-2 text-xs leading-5 text-[#796131]">AI requests stay in OpenRouter’s free model pool. Instant Dictionary is a separate no-key lookup for one ordinary English word, so it does not use your AI daily quota.</p>
+                  <p className="mt-2 text-xs leading-5 text-[#796131]">Manual creates editable drafts. Dictionary tries the public dictionary first, then falls back to AI if needed. Direct AI stays free-only and never uses paid models.</p>
                 </section>
 
                 {workerOrigin && deviceSession && (
