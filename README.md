@@ -1,30 +1,45 @@
 # Vocab Sync
 
-**Vocab Sync** is a personal, browser-only vocabulary desk. Paste words, generate brief meanings and short examples using OpenRouter free models, review the drafts, and sync them to an Obsidian-compatible Markdown file in Google Drive.
+> **Personal-use project.** Vocab Sync was built by Gautam for a private vocabulary workflow with Obsidian and Google Drive. It does not offer public sign-up, shared workspaces, or multi-user data isolation today.
 
-The live app is available at [bettercall-gautam.github.io/vocab-sync](https://bettercall-gautam.github.io/vocab-sync/).
+Vocab Sync is a personal language desk for capturing new words, getting concise drafts, reviewing recall, and syncing an Obsidian-compatible `vocab.md` file safely to Google Drive.
 
-> The selected Markdown file remains the source of truth. Vocab Sync never writes automatically. You review changes first, then explicitly choose **Sync to Drive**.
+**[Open Vocab Sync](https://bettercall-gautam.github.io/vocab-sync/)**
 
-| Capability | What it does |
-|---|---|
-| Capture | Accepts one word, a pasted list, or comma-separated phrases. Duplicate words are removed before generation. |
-| Generate | Uses only OpenRouter free models to create direct meanings with up to eight words and examples with up to ten words. One automatic retry handles an overlong response. |
-| Review | Lets you edit generated drafts before writing anything to Drive. |
-| Library | Parses the selected Markdown table so existing entries can be edited or deleted. |
-| Sync | Adds reviewed drafts and writes Library edits or deletions back to Drive only after a conflict check. |
+![Vocab Sync desktop capture workspace](docs/images/vocab-sync-desktop-capture.png)
 
-## Daily workflow
+<p align="center"><em>Smart capture on desktop. The screenshot uses placeholder examples and no connected Drive account.</em></p>
 
-First, open the app and press **Connect Drive**. Approve Google access, then choose a Markdown file from **The Shelf**. The file picker is deliberately limited to Markdown files in that folder.
+## What it does
 
-Next, open **Free browser setup** and paste your own OpenRouter API key. Use **Remember key** only on a private device with a screen lock. On a shared device, keep **Do not save the key** selected so the key disappears after the browser session.
+| Area | Current behavior |
+| --- | --- |
+| **Smart capture** | For an ordinary English word, it tries a public dictionary first. Phrases and dictionary misses use free-only AI when the owner has configured an OpenRouter key. If neither route can finish, the submitted text remains as an editable draft. |
+| **Manual and Direct AI** | Manual creates an editable draft immediately. Direct AI skips dictionary lookup and uses only the configured free OpenRouter models. |
+| **Review** | Five-word sessions use both word-to-meaning and meaning-to-word prompts, with plain-language self-assessments that schedule the next review. |
+| **Library** | Search, filter, edit, or remove entries before syncing. Markdown and CSV export provide local backups. |
+| **Safe Drive sync** | The selected Markdown file remains the source of truth. Before every write, Vocab Sync checks for external changes and blocks a conflicting sync. |
+| **Installable app** | The site can be added to a phone or desktop home screen as a Progressive Web App with a standalone window and custom icon. |
 
-Paste words in the capture box and press **Generate drafts**. Review each meaning and example. When the drafts are correct, press **Sync to Drive**. For Library changes, edit or delete an entry and the same Sync button becomes available even if there are no new drafts.
+## On phone
 
-## Markdown format
+![Vocab Sync mobile capture workspace](docs/images/vocab-sync-mobile-capture.png)
 
-The selected note should contain this three-column table:
+<p align="center"><em>Mobile capture keeps Capture, Review, and Library within reach without exposing private data.</em></p>
+
+## Personal use today
+
+This deployed version is designed around one private workflow. It connects to the owner’s Google Drive, opens Markdown notes from the owner’s configured folder, and has no public account registration.
+
+> It is **not yet a public service for other users**. Do not treat the current deployment as a multi-user product or use it to store another person’s Drive credentials.
+
+## Quick start
+
+1. Open the [live app](https://bettercall-gautam.github.io/vocab-sync/) and choose **Connect Drive**.
+2. Select a Markdown note from the allowed Drive folder. The note should use the three-column vocabulary table shown below.
+3. In **Free browser setup**, optionally enter an OpenRouter key on a private, screen-locked device.
+4. Paste one word, several lines, or comma-separated phrases. Choose **Smart capture**, **Manual**, or **Direct AI**.
+5. Review and edit every draft. Select **Sync to Drive** only when the changes look right.
 
 ```md
 | Word or Phrase | Simple Meaning | Example |
@@ -32,15 +47,40 @@ The selected note should contain this three-column table:
 | hypothesis | A testable idea. | We tested the hypothesis. |
 ```
 
-## Privacy and safety
+## Free use, privacy, and limits
 
-This is a static browser app with no Vocab Sync backend and no app database. Unsynced drafts are stored only in the current browser. If you opt to remember an OpenRouter key, it is stored only in that browser's local storage. Do not commit API keys, OAuth client secrets, or `.env` files to GitHub.
+| Service | Data and cost model |
+| --- | --- |
+| **Instant Dictionary** | Uses public dictionary sources for ordinary English words. It needs no OpenRouter key and does not consume the owner’s AI quota. |
+| **Free AI** | Uses only the configured OpenRouter free-model route. The key stays in the browser, and free-model availability or daily limits are controlled by OpenRouter. Paid-model fallback is disabled. |
+| **Google Drive** | The owner chooses the file. The app requests the selected-file Drive permission model and uses the Google Picker. [1] [2] |
+| **Persistent connection** | A small Cloudflare Worker stores the owner’s encrypted Google refresh token and device-session data in D1 so the personal Drive connection can be restored safely. No vocabulary-file content is copied into the app database. |
+| **Review progress** | Review scheduling metadata can sync between the owner’s devices through the protected Worker endpoint. The vocabulary note remains the source of truth for vocabulary entries. |
 
-Google access uses the narrow `drive.file` permission. You select the file yourself through Google Picker, and the temporary browser token expires. Google documents this selected-file model and permission scope here: [Google Picker][1] and [Drive authorization scopes][2].
+Never commit API keys, OAuth client secrets, `.env` files, or exported Drive credentials to GitHub. Use **Remember key** only on a personal device with a screen lock.
 
-Before each write, Vocab Sync compares the current Drive version and a content fingerprint with the copy it originally loaded. If the file changed outside the app, sync is blocked so you can reload instead of overwriting a newer Obsidian change.
+## Install on a home screen
 
-## Run locally
+On Android, open the app in Chrome and choose **Install app** or **Add to Home screen**. On iPhone, open it in Safari, choose **Share**, then choose **Add to Home Screen**.
+
+The installed shortcut opens Vocab Sync quickly in an app-style window. It is not a native live widget that can show a word without opening the app.
+
+## Architecture
+
+| Layer | Role |
+| --- | --- |
+| GitHub Pages | Hosts the static React and Vite frontend. |
+| Cloudflare Worker and D1 | Handles encrypted owner Drive credentials, opaque device sessions, and protected review-state sync. |
+| Google Drive | Holds the selected Obsidian-compatible Markdown file. |
+| OpenRouter | Optional, owner-managed free-only AI generation. |
+
+## Future direction
+
+The next major version may make Vocab Sync usable by other people. That work is **not built yet**. A safe public version would require separate accounts, one isolated Drive connection per user, strict authorization on every backend request, per-user review state, rate limiting, and a clear privacy policy.
+
+Until then, this remains a personal project rather than a public software-as-a-service product.
+
+## Development
 
 Install Node.js and pnpm, then run:
 
@@ -49,38 +89,23 @@ pnpm install
 pnpm dev
 ```
 
-Use the following local checks before changing or publishing the app:
+Run these checks before publishing a change:
 
 ```bash
 pnpm check
-pnpm test -- --run
+pnpm test
 pnpm build:static
 ```
 
-The static deployment uses GitHub Pages. The build reads these GitHub Actions repository variables:
+The deployed frontend is hosted on GitHub Pages. Personal deployment values and user-specific folder configuration are intentionally not documented here. See the technical notes under [`docs/`](docs/) if you are maintaining this project.
 
-| Variable | Purpose |
-|---|---|
-| `VITE_GOOGLE_CLIENT_ID` | Public OAuth browser client ID. |
-| `VITE_GOOGLE_PICKER_API_KEY` | Restricted Google Picker and Drive browser key. |
-| `VITE_THE_SHELF_FOLDER_ID` | The Google Drive folder opened by the Picker. |
+## Further reading
 
-The OpenRouter key is entered by the owner inside the app and must **not** be set as a repository variable.
+Read the [user guide](docs/user-guide.md) for the normal capture and sync flow, the [PWA home-screen guide](docs/pwa-home-screen.md) for installation details, and the [technical notes](docs/) for implementation history.
 
-## Troubleshooting
+## Licence
 
-| Problem | What to do |
-|---|---|
-| Google Picker does not open | Reconnect Drive, wait a moment, then choose the file again. Confirm the browser is online. |
-| A selected file will not load | Choose it again through the Picker. The `drive.file` permission is granted to files you explicitly select. |
-| Sync button is inactive | Add one complete draft, or make an edit or deletion in Library. Connect Drive and choose the target file first. |
-| Sync reports a conflict | Reload the file from Drive. Make your change again against the current version. |
-| A free model is unavailable | Wait briefly and retry. The app only tries free models and never silently switches to paid models. |
-| Generated copy is still too long | Generate again or edit the draft. The app rejects content above the concise limits after one repair attempt. |
-
-## More documentation
-
-Read the [user guide](docs/user-guide.md) for a detailed click-by-click flow. Technical decisions and deployment evidence are collected under [`docs/`](docs/).
+**All rights reserved.** This repository is personal-use software for now. No permission is granted to copy, modify, distribute, sublicense, or use it as a public service without the owner’s written permission. See [`LICENSE`](LICENSE).
 
 ## References
 

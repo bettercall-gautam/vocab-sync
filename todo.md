@@ -149,3 +149,8 @@
 - [x] Curate an icon direction from a Watchlist writing-scene reference, then replace the blurred PWA launch icon with a high-resolution final asset selected or supplied by the owner. Superseded by the owner-approved reading-scene direction.
 - [x] Research and rank book, diary, note, or journal reading scenes from the Watchlist, including Hank Schrader’s Breaking Bad reveal, before choosing an icon direction.
 - [x] Replace the PWA launch and home-screen icons with the owner-selected Gene/Saul reading image, using crisp square 192px and 512px assets.
+- [x] Review and propose an approved README refresh that presents Vocab Sync as a personal-use project today, adds current product screenshots, and clearly frames a possible future multi-user direction.
+- [x] Capture current desktop and phone product screenshots for the public README without exposing personal vocabulary, keys, or Drive content.
+- [x] Refresh the README with accurate personal-use positioning, current Smart capture and review workflow, privacy and free-tier limits, PWA installation steps, screenshots, and an explicitly unbuilt future multi-user direction.
+- [x] Replace the public MIT licence declaration with a personal-use, all-rights-reserved notice after the owner’s explicit approval.
+- [x] Move user-specific configuration references out of the public README and align the user guide with the current persistent-Drive architecture and capture controls.
