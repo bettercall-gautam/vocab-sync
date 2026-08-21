@@ -131,4 +131,7 @@
 - [x] Refine mobile focus, information hierarchy, and the personal language desk interface without a full redesign.
 - [x] Measure and improve initial loading by deferring nonessential Google setup code until a Drive action is requested.
 - [x] Add clear in-app progress and outcome states only; Telegram notifications are explicitly out of scope.
-- [ ] Test, publish, and obtain owner-device validation for the complete improvement release.
+- [ ] Complete owner-device validation for the published improvement release; GitHub Pages workflow 32464955893 succeeded.
+- [x] Strip legacy Markdown bold markers from vocabulary words in the app display and future Drive sync output without altering meanings or examples.
+- [ ] Publish the plain-word formatting correction to GitHub Pages.
+- [ ] Verify the owner’s Drive `vocab.md` becomes consistently plain-text word formatting after the safe cleanup sync.

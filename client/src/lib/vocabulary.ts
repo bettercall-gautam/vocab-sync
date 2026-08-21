@@ -28,12 +28,18 @@ export type DriveFileSnapshot = {
 
 const dividerPattern = /^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/;
 
+export function normalizeVocabularyWord(value: string): string {
+  const trimmed = value.trim();
+  const outerBoldMatch = trimmed.match(/^\*\*([\s\S]+?)\*\*$/);
+  return (outerBoldMatch?.[1] ?? trimmed).trim();
+}
+
 export function normalizeWords(input: string): string[] {
   const seen = new Set<string>();
 
   return input
     .split(/[\n,;]+/)
-    .map(word => word.trim().replace(/^[-•\d.\s]+/, ""))
+    .map(word => normalizeVocabularyWord(word.trim().replace(/^[-•\d.\s]+/, "")))
     .filter(Boolean)
     .filter(word => {
       const normalized = word.toLocaleLowerCase();
@@ -78,7 +84,8 @@ export function parseVocabularyMarkdown(markdown: string): VocabularyEntry[] {
   for (let index = headerIndex + 2; index < lines.length; index += 1) {
     const line = lines[index];
     if (!line.includes("|") || dividerPattern.test(line)) continue;
-    const [word = "", meaning = "", example = ""] = cellsFromRow(line);
+    const [rawWord = "", meaning = "", example = ""] = cellsFromRow(line);
+    const word = normalizeVocabularyWord(rawWord);
     if (!word || !meaning || !example) continue;
     entries.push({
       id: `${word.toLocaleLowerCase()}-${index}`,
@@ -94,7 +101,7 @@ export function parseVocabularyMarkdown(markdown: string): VocabularyEntry[] {
 
 export function renderVocabularyMarkdown(entries: VocabularyEntry[]): string {
   const rows = entries
-    .map(entry => `| ${escapeCell(entry.word)} | ${escapeCell(entry.meaning)} | ${escapeCell(entry.example)} |`)
+    .map(entry => `| ${escapeCell(normalizeVocabularyWord(entry.word))} | ${escapeCell(entry.meaning)} | ${escapeCell(entry.example)} |`)
     .join("\n");
 
   return [

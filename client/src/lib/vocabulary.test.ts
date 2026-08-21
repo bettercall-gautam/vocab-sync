@@ -11,6 +11,7 @@ import {
   isFreeOnlyModel,
   mergeVocabularyEntries,
   normalizeOpenRouterApiKey,
+  normalizeVocabularyWord,
   normalizeWords,
   parseGeneratedVocabularyEntries,
   parseInstantDictionaryEntry,
@@ -28,6 +29,12 @@ describe("vocabulary helpers", () => {
       "grit",
       "epiphany",
     ]);
+  });
+
+  it("removes only outer Markdown bold markers from vocabulary words", () => {
+    expect(normalizeVocabularyWord(" **serenity** ")).toBe("serenity");
+    expect(normalizeVocabularyWord("aster*isk")).toBe("aster*isk");
+    expect(normalizeWords("**serenity**, grit")).toEqual(["serenity", "grit"]);
   });
 
   it("turns a public dictionary definition and example into a concise vocabulary draft", () => {
@@ -163,6 +170,17 @@ describe("vocabulary helpers", () => {
     expect(parseVocabularyMarkdown(markdown)).toMatchObject([
       { word: "Serenity", meaning: "A calm and peaceful state" },
     ]);
+  });
+
+  it("reads old bold words plainly and writes future word cells without bold markers", () => {
+    const entries = parseVocabularyMarkdown([
+      "| Word or Phrase | Simple Meaning | Example |",
+      "|---|---|---|",
+      "| **serenity** | Calm peace | The room felt calm. |",
+    ].join("\n"));
+
+    expect(entries[0]).toMatchObject({ word: "serenity", meaning: "Calm peace", example: "The room felt calm." });
+    expect(renderVocabularyMarkdown([{ ...entries[0], word: "**serenity**" }])).toContain("| serenity | Calm peace | The room felt calm. |");
   });
 
   it("prevents duplicate words during a merge", () => {
