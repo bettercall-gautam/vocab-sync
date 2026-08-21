@@ -154,3 +154,4 @@
 - [x] Refresh the README with accurate personal-use positioning, current Smart capture and review workflow, privacy and free-tier limits, PWA installation steps, screenshots, and an explicitly unbuilt future multi-user direction.
 - [x] Replace the public MIT licence declaration with a personal-use, all-rights-reserved notice after the owner’s explicit approval.
 - [x] Move user-specific configuration references out of the public README and align the user guide with the current persistent-Drive architecture and capture controls.
+- [x] Replace the incomplete README screenshot section with one privacy-safe feature collage showing Capture, Review, Library, and safe-sync states.

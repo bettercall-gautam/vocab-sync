@@ -6,9 +6,9 @@ Vocab Sync is a personal language desk for capturing new words, getting concise 
 
 **[Open Vocab Sync](https://bettercall-gautam.github.io/vocab-sync/)**
 
-![Vocab Sync desktop capture workspace](docs/images/vocab-sync-desktop-capture.png)
+![Vocab Sync feature overview showing Smart capture, Daily review, Vocabulary library, and Safe Drive sync](docs/images/vocab-sync-feature-collage.png)
 
-<p align="center"><em>Smart capture on desktop. The screenshot uses placeholder examples and no connected Drive account.</em></p>
+<p align="center"><em>Feature overview: Smart capture, daily review, vocabulary library, and safe Drive sync. All panels use placeholders or an unconnected state.</em></p>
 
 ## What it does
 
@@ -21,11 +21,7 @@ Vocab Sync is a personal language desk for capturing new words, getting concise 
 | **Safe Drive sync** | The selected Markdown file remains the source of truth. Before every write, Vocab Sync checks for external changes and blocks a conflicting sync. |
 | **Installable app** | The site can be added to a phone or desktop home screen as a Progressive Web App with a standalone window and custom icon. |
 
-## On phone
-
-![Vocab Sync mobile capture workspace](docs/images/vocab-sync-mobile-capture.png)
-
-<p align="center"><em>Mobile capture keeps Capture, Review, and Library within reach without exposing private data.</em></p>
+The same Capture, Review, and Library workflow is responsive on phone, tablet, and desktop.
 
 ## Personal use today
 
