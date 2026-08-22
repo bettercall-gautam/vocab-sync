@@ -82,8 +82,26 @@ describe("vocabulary helpers", () => {
       },
     ], "adore")).toEqual({
       word: "adore",
-      meaning: "To love with one's entire heart and soul;",
+      meaning: "To love with one's entire heart and soul; regard with deep respect.",
       example: "Gerry adores Heather.",
+    });
+  });
+
+  it("keeps a complete slightly longer Smart-dictionary example instead of cutting it at a word limit", () => {
+    expect(parseInstantDictionaryEntry([
+      {
+        meanings: [{
+          partOfSpeech: "noun",
+          definitions: [{
+            definition: "A fortunate discovery made by accident.",
+            example: "Finding the quiet café by accident was pure serendipity on our rainy afternoon walk.",
+          }],
+        }],
+      },
+    ], "serendipity")).toEqual({
+      word: "serendipity",
+      meaning: "A fortunate discovery made by accident.",
+      example: "Finding the quiet café by accident was pure serendipity on our rainy afternoon walk.",
     });
   });
 
@@ -327,7 +345,7 @@ describe("vocabulary helpers", () => {
     expect(calls).toEqual([["first:free"]]);
   });
 
-  it("accepts compact vocabulary notes and rejects overlong model output", () => {
+  it("accepts complete slightly longer vocabulary notes and rejects genuinely excessive model output", () => {
     expect(isConciseVocabularyEntry({
       word: "hypothesis",
       meaning: "A testable idea based on evidence.",
@@ -338,20 +356,36 @@ describe("vocabulary helpers", () => {
       word: "hypothesis",
       meaning: "A proposed explanation based on limited evidence that can be tested through observation.",
       example: "The researcher formed a hypothesis that adding fertilizer would increase crop yield.",
+    })).toBe(true);
+
+    expect(isConciseVocabularyEntry({
+      word: "hypothesis",
+      meaning: "A proposed explanation formed from limited observations and evidence that must be tested carefully through repeated experiments before it can support a reliable conclusion.",
+      example: "The research team formed a detailed hypothesis about how changing several environmental conditions together could affect plant growth across many carefully controlled experiments during the season.",
     })).toBe(false);
-    expect(conciseVocabularyLimits.meaningWords).toBe(8);
-    expect(conciseVocabularyLimits.exampleWords).toBe(10);
+    expect(conciseVocabularyLimits.meaningWords).toBe(18);
+    expect(conciseVocabularyLimits.exampleWords).toBe(28);
   });
 
-  it("clamps a slightly overlong provider response locally instead of requiring a second model request", () => {
+  it("keeps a slightly overlong provider response complete instead of cutting it mid-sentence", () => {
     expect(clampVocabularyEntryToConciseLimits({
       word: "hypothesis",
       meaning: "A proposed explanation based on limited evidence that can be tested.",
       example: "The researcher formed a hypothesis that adding fertilizer would increase crop yield.",
     })).toEqual({
       word: "hypothesis",
-      meaning: "A proposed explanation based on limited evidence that",
-      example: "The researcher formed a hypothesis that adding fertilizer would increase",
+      meaning: "A proposed explanation based on limited evidence that can be tested.",
+      example: "The researcher formed a hypothesis that adding fertilizer would increase crop yield.",
+    });
+
+    expect(clampVocabularyEntryToConciseLimits({
+      word: "serendipity",
+      meaning: "  A   lucky   discovery made by chance.  ",
+      example: "  We found the quiet café by serendipity after getting lost.  ",
+    })).toEqual({
+      word: "serendipity",
+      meaning: "A lucky discovery made by chance.",
+      example: "We found the quiet café by serendipity after getting lost.",
     });
   });
 

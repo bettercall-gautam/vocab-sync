@@ -703,7 +703,7 @@ export default function Home() {
             messages: [
               {
                 role: "system",
-                content: "Return only valid JSON. Create extremely concise vocabulary notes. Hard rules for every entry: meaning has at most 8 words and gives one direct simple definition; example has at most 10 words and is one natural sentence. Do not add explanations, clauses, alternatives, or extra detail.",
+                content: "Return only valid JSON. Create concise vocabulary notes. Aim for a direct simple meaning of about 8 words and one natural example sentence of about 10 words. Keep every meaning and example complete: never stop in the middle of a sentence or phrase. Do not add alternatives or unnecessary detail.",
               },
               {
                 role: "user",

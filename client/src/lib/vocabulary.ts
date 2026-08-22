@@ -14,8 +14,8 @@ export type GeneratedVocabularyText = {
 };
 
 export const conciseVocabularyLimits = {
-  meaningWords: 8,
-  exampleWords: 10,
+  meaningWords: 18,
+  exampleWords: 28,
 } as const;
 
 export type DriveFileSnapshot = {
@@ -181,19 +181,20 @@ export function isConciseVocabularyEntry(entry: GeneratedVocabularyText): boolea
   );
 }
 
-function trimToWordLimit(value: string, limit: number): string {
-  return value.trim().split(/\s+/).filter(Boolean).slice(0, limit).join(" ");
+function normalizeVocabularyText(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
 }
 
 /**
- * Keeps the user-requested short format locally rather than issuing a second,
- * slower model request when a provider slightly exceeds a word limit.
+ * Keeps provider output clean without ever slicing a meaning or example in the
+ * middle of a sentence. The model prompt still asks for short notes, while the
+ * wider validation ceiling accepts a complete slightly longer response.
  */
 export function clampVocabularyEntryToConciseLimits(entry: GeneratedVocabularyText): GeneratedVocabularyText {
   return {
     ...entry,
-    meaning: trimToWordLimit(entry.meaning, conciseVocabularyLimits.meaningWords),
-    example: trimToWordLimit(entry.example, conciseVocabularyLimits.exampleWords),
+    meaning: normalizeVocabularyText(entry.meaning),
+    example: normalizeVocabularyText(entry.example),
   };
 }
 
