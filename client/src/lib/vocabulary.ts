@@ -130,12 +130,13 @@ export function hasDriveConflict(
   return expected.version !== latest.version || expected.fingerprint !== createFingerprint(latest.content);
 }
 
-// Reassessed against OpenRouter's live catalog on 2026-08-21 for short structured
+// Reassessed against OpenRouter's live catalog on 2026-08-28 for short structured
 // vocabulary notes. These durable models are free and support structured outputs.
-// The first model is tuned for lower-latency inference; the second is a free backup.
+// The first model is a high-capacity mixture-of-experts; the others are fast backups.
 export const freeModelFallbacks = [
   "nvidia/nemotron-3-super-120b-a12b:free",
-  "openai/gpt-oss-20b:free",
+  "nvidia/nemotron-3.5-lightning:free",
+  "minimax/minimax-m3:free",
 ] as const;
 
 export const openRouterModelsPerRequestLimit = 3;
@@ -418,7 +419,7 @@ export type FreeModelRouterResult<T> = {
 
 function isRetryableFreeModelFailure(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
-  return /\b(408|409|425|429|500|502|503|504)\b|network|timeout|temporar|busy|overload|empty|not valid json|did not contain vocabulary|usable vocabulary|did not return every requested word/i.test(message);
+  return /\b(404|408|409|425|429|500|502|503|504)\b|network|timeout|temporar|busy|overload|empty|not valid json|did not contain vocabulary|usable vocabulary|did not return every requested word|unavailable for free|paid version|use this slug instead|no longer free/i.test(message);
 }
 
 function isAccountFreeModelDailyLimit(error: unknown): boolean {
@@ -428,7 +429,7 @@ function isAccountFreeModelDailyLimit(error: unknown): boolean {
 
 function shouldRetryWithoutDelay(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
-  return /empty|not valid json|did not contain vocabulary|usable vocabulary/i.test(message);
+  return /empty|not valid json|did not contain vocabulary|usable vocabulary|unavailable for free|paid version|use this slug instead|no longer free/i.test(message);
 }
 
 function conciseFailureReason(error: unknown): string {

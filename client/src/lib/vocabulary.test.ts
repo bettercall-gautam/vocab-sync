@@ -226,13 +226,14 @@ describe("vocabulary helpers", () => {
     expect(hasDriveConflict(expected, { version: "12", content: "edited in Obsidian" })).toBe(true);
   });
 
-  it("uses two durable verified free candidates and excludes the random free-model router", () => {
-    expect(freeModelFallbacks).toHaveLength(2);
+  it("uses durable verified free candidates and excludes the random free-model router", () => {
+    expect(freeModelFallbacks.length).toBeGreaterThanOrEqual(2);
     expect(freeModelFallbacks.every(isFreeOnlyModel)).toBe(true);
     expect(freeModelFallbacks).not.toContain("openrouter/free");
     expect(freeModelFallbacks).toEqual([
       "nvidia/nemotron-3-super-120b-a12b:free",
-      "openai/gpt-oss-20b:free",
+      "nvidia/nemotron-3.5-lightning:free",
+      "minimax/minimax-m3:free",
     ]);
     expect(isFreeOnlyModel("paid/provider-model")).toBe(false);
   });
@@ -343,6 +344,27 @@ describe("vocabulary helpers", () => {
       0,
     )).rejects.toThrow("daily free-model limit has been reached");
     expect(calls).toEqual([["first:free"]]);
+  });
+
+  it("advances to the next free candidate when a model is no longer available for free", async () => {
+    const calls: string[][] = [];
+    const result = await requestWithFreeModelRouter(
+      async models => {
+        calls.push([...models]);
+        if (models.includes("first:free")) {
+          throw new Error("OpenRouter 404 (404): This model is unavailable for free. The paid version is available now - use this slug instead: first-model");
+        }
+        return "recovered from paid-only model";
+      },
+      ["first:free", "second:free"],
+      0,
+    );
+
+    expect(result.value).toBe("recovered from paid-only model");
+    expect(calls).toEqual([
+      ["first:free"],
+      ["second:free"],
+    ]);
   });
 
   it("accepts complete slightly longer vocabulary notes and rejects genuinely excessive model output", () => {
