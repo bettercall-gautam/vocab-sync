@@ -771,7 +771,12 @@ export default function Home() {
       toast.success(`${fresh.length} draft ${fresh.length === 1 ? "entry" : "entries"} generated with ${model}.`);
     } catch (error) {
       const reason = error instanceof Error ? error.message : "Free generation could not be completed.";
-      preserveInputAsManualDrafts(reason);
+      // If we have words to preserve, do it and show a message rather than a hard error toast
+      if (wordsReady.length > 0) {
+        preserveInputAsManualDrafts(reason);
+      } else {
+        toast.error(reason);
+      }
     } finally {
       setGenerating(false);
     }

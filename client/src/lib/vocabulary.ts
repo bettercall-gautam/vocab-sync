@@ -375,11 +375,46 @@ export function parseWiktionaryDictionaryEntry(payload: unknown, requestedWord: 
   throw new Error("The secondary dictionary could not find a simple English definition.");
 }
 
+function salvageVocabularyEntriesFromMalformedText(text: string): GeneratedVocabularyText[] {
+  const entries: GeneratedVocabularyText[] = [];
+  // 1. Try to find anything that looks like a JSON array of objects
+  const arrayMatch = text.match(/\[[\s\S]*?\]/);
+  if (arrayMatch) {
+    try {
+      // Strip trailing commas and comments before parsing
+      const cleaned = arrayMatch[0]
+        .replace(/\/\/.*$/gm, "")
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/,\s*([\]}])/g, "$1");
+      const parsed = JSON.parse(cleaned);
+      if (Array.isArray(parsed)) {
+        for (const item of parsed) {
+          if (item && typeof item === "object" && item.word && item.meaning && item.example) {
+            entries.push({ word: String(item.word).trim(), meaning: String(item.meaning).trim(), example: String(item.example).trim() });
+          }
+        }
+      }
+    } catch { /* continue to next salvage method */ }
+  }
+
+  if (entries.length) return entries;
+
+  // 2. Fallback to per-entry regex if the overall JSON structure is broken
+  const entryRegex = /\{\s*"word"\s*:\s*"([^"]+)"\s*,\s*"meaning"\s*:\s*"([^"]+)"\s*,\s*"example"\s*:\s*"([^"]+)"\s*\}/gi;
+  let match: RegExpExecArray | null;
+  // eslint-disable-next-line no-cond-assign
+  while ((match = entryRegex.exec(text)) !== null) {
+    entries.push({ word: match[1].trim(), meaning: match[2].trim(), example: match[3].trim() });
+  }
+
+  return entries;
+}
+
 export function parseGeneratedVocabularyEntries(content: unknown): GeneratedVocabularyText[] {
   if (typeof content !== "string" || !content.trim()) throw new Error("Model response was empty.");
 
-  const json = content
-    .trim()
+  const rawText = content.trim();
+  const json = rawText
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/, "");
 
@@ -387,14 +422,29 @@ export function parseGeneratedVocabularyEntries(content: unknown): GeneratedVoca
   try {
     parsed = JSON.parse(json);
   } catch {
+    // If direct parse fails, try to salvage entries from the raw text
+    const salvaged = salvageVocabularyEntriesFromMalformedText(rawText);
+    if (salvaged.length) return salvaged;
     throw new Error("Model response was not valid JSON.");
   }
 
-  if (!parsed || typeof parsed !== "object" || !Array.isArray((parsed as { entries?: unknown }).entries)) {
+  // Even if parsed succeeded, if it is not a usable object/array, try salvage
+  if (!parsed || typeof parsed !== "object") {
+    const salvaged = salvageVocabularyEntriesFromMalformedText(rawText);
+    if (salvaged.length) return salvaged;
+  }
+
+  const entriesArray = (parsed && typeof parsed === "object")
+    ? (Array.isArray(parsed) ? parsed : (parsed as { entries?: unknown }).entries)
+    : null;
+
+  if (!Array.isArray(entriesArray)) {
+    const salvaged = salvageVocabularyEntriesFromMalformedText(rawText);
+    if (salvaged.length) return salvaged;
     throw new Error("Model response did not contain vocabulary entries.");
   }
 
-  const entries = (parsed as { entries: unknown[] }).entries
+  const entries = entriesArray
     .filter((entry): entry is Record<string, unknown> => Boolean(entry && typeof entry === "object"))
     .map(entry => ({
       word: typeof entry.word === "string" ? entry.word.trim() : "",
@@ -403,7 +453,11 @@ export function parseGeneratedVocabularyEntries(content: unknown): GeneratedVoca
     }))
     .filter(entry => Boolean(entry.word && entry.meaning && entry.example));
 
-  if (!entries.length) throw new Error("Model response did not contain usable vocabulary entries.");
+  if (!entries.length) {
+    const salvaged = salvageVocabularyEntriesFromMalformedText(rawText);
+    if (salvaged.length) return salvaged;
+    throw new Error("Model response did not contain usable vocabulary entries.");
+  }
   return entries;
 }
 

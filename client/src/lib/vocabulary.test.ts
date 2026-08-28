@@ -346,6 +346,21 @@ describe("vocabulary helpers", () => {
     expect(calls).toEqual([["first:free"]]);
   });
 
+  it("salvages vocabulary entries from malformed JSON text using per-entry regex", () => {
+    const malformed = 'Sure, here are the entries: {"word": "serenity", "meaning": "calmness", "example": "A sense of serenity."} and another one {"word": "grit", "meaning": "courage", "example": "He showed true grit."}';
+    expect(parseGeneratedVocabularyEntries(malformed)).toEqual([
+      { word: "serenity", meaning: "calmness", example: "A sense of serenity." },
+      { word: "grit", meaning: "courage", example: "He showed true grit." },
+    ]);
+  });
+
+  it("salvages entries from a JSON array with trailing commas", () => {
+    const malformed = '```json\n[{"word": "serenity", "meaning": "calm", "example": "Peace.",},]\n```';
+    expect(parseGeneratedVocabularyEntries(malformed)).toEqual([
+      { word: "serenity", meaning: "calm", example: "Peace." },
+    ]);
+  });
+
   it("advances to the next free candidate when a model is no longer available for free", async () => {
     const calls: string[][] = [];
     const result = await requestWithFreeModelRouter(
